@@ -106,7 +106,7 @@ function corporateTower(cell, ctx) {
     uScale: uv.uScale,
     vScale: uv.vScale,
     uOff: uv.uOff,
-    vOff: uv.vOff,
+    vOff: 0,
     shell: 0.08,
   });
   // colonnade on the +z (street) face
@@ -170,7 +170,7 @@ function corporateTower(cell, ctx) {
       uScale: uv.uScale,
       vScale: uv.vScale,
       uOff: uv.uOff + t,
-      vOff: uv.vOff,
+      vOff: 1, // tiers start above the podium — no retail row at their base
     });
     // vertical fins
     const fins = Math.max(3, Math.floor(tier.w / 4.2));

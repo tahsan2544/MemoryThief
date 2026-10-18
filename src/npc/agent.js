@@ -44,10 +44,21 @@ const PALETTES = {
     { coat: 0x4a5468, accent: 0x6b5a4a },
     { coat: 0x51464e, accent: 0x4f6b60 },
     { coat: 0x46505e, accent: 0x6e5f46 },
+    { coat: 0x5a5044, accent: 0x4a5a6e },
+    { coat: 0x3f4650, accent: 0x7a5f52 },
   ],
-  vendor: [{ coat: 0x5b4a3f, accent: 0x8a5c33 }],
-  guard: [{ coat: 0x2c3340, accent: 0xb08a2e }],
-  target: [{ coat: 0x3a3348, accent: 0x8f4f9a }],
+  vendor: [
+    { coat: 0x5b4a3f, accent: 0x8a5c33 },
+    { coat: 0x4e4436, accent: 0x96683a },
+  ],
+  guard: [
+    { coat: 0x2c3340, accent: 0xb08a2e },
+    { coat: 0x303644, accent: 0x9a8f4a },
+  ],
+  target: [
+    { coat: 0x3a3348, accent: 0x8f4f9a },
+    { coat: 0x34384a, accent: 0x5f7fa8 },
+  ],
 };
 
 /* ----------------------------- helpers ---------------------------------- */
@@ -94,6 +105,7 @@ export class NpcAgent {
     this.id = id;
     this.type = type;
     this.name = name;
+    this.seed = seed; // seeds the rig's gait style, face pick and idle variant
     this.spec = T;
     this.route = route;
     this.colliders = colliders;
@@ -412,7 +424,7 @@ export class NpcAgent {
     // stand at attention, vendors call out, searching figures shield their
     // eyes and the mark is always checking a device.
     this.rig.setAnim(
-      clipFor({ role: this.type, mode: this.mode, moving, awareness: this.awareness }),
+      clipFor({ role: this.type, mode: this.mode, moving, awareness: this.awareness, seed: this.seed }),
     );
     this.rig.update(dt, t, viewer ?? null);
   }

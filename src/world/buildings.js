@@ -160,7 +160,8 @@ function building(ctx, cell, district, rng, lot, base) {
         color: 0x15181e,
         roofColor: 0x15181e,
       });
-      // shopfront band (ground floor)
+      // shopfront band (ground floor) — vOff 0 pins the texture's retail row
+      // to the pavement
       facade.box({
         x: cx,
         y,
@@ -172,7 +173,7 @@ function building(ctx, cell, district, rng, lot, base) {
         uScale: uv.uScale,
         vScale: uv.vScale,
         uOff: uv.uOff,
-        vOff: uv.vOff,
+        vOff: 0,
         shell: 0.06,
       });
       // illuminated fascia above the shopfront
@@ -187,7 +188,7 @@ function building(ctx, cell, district, rng, lot, base) {
           color: neonCol,
         });
       }
-      // upper part of the tier
+      // upper part of the tier — starts one shop band above texture row 0
       facade.box({
         x: cx,
         y: y + GROUND_FLOOR,
@@ -199,7 +200,7 @@ function building(ctx, cell, district, rng, lot, base) {
         uScale: uv.uScale,
         vScale: uv.vScale,
         uOff: uv.uOff,
-        vOff: uv.vOff + GROUND_FLOOR / district.floorH,
+        vOff: GROUND_FLOOR / district.floorH,
         shell: 0.06,
       });
       y += th;
@@ -215,13 +216,25 @@ function building(ctx, cell, district, rng, lot, base) {
         uScale: uv.uScale,
         vScale: uv.vScale,
         uOff: uv.uOff,
-        vOff: uv.vOff,
+        vOff: 0,
         shell: 0.06,
       });
       y += th;
     }
 
     // ---- tier jewellery ----
+    // cornice: an overhanging lip under every setback / parapet so the
+    // silhouette reads as stacked masonry instead of one extruded box
+    trim.box({
+      x: cx,
+      y: y - 0.3,
+      z: cz,
+      w: cw + 0.55,
+      h: 0.44,
+      d: cd + 0.55,
+      color: shadeHex(wallCol, 1.18),
+      roofColor: shadeHex(wallCol, 1.32),
+    });
     if (profile.fins && cw > 8) addFins(trim, cx, cz, cw, cd, y - th, th, rng);
     if (profile.balconies > 0 && rng.chance(profile.balconies)) {
       addBalconies(trim, cx, cz, cw, cd, y - th, th, district, rng);
@@ -230,6 +243,9 @@ function building(ctx, cell, district, rng, lot, base) {
       addAwning(trim, cx, cz, cw, cd, y0 + GROUND_FLOOR - 1.0, rng);
     }
     if (profile.pipes && rng.chance(0.6)) addPipes(trim, cx, cz, cw, cd, y0, y, rng);
+    if (isBaseTier && th > GROUND_FLOOR + 1.5) {
+      addShopfrontDetail(trim, neon, roofB, cx, cz, cw, cd, y0, wallCol, plinthCol, rng);
+    }
 
     // setback for the next tier
     if (tierIndex < nTiers - 1) {
@@ -266,6 +282,28 @@ function building(ctx, cell, district, rng, lot, base) {
     roofColor: 0x3e4654,
   });
 
+  // ---- stair bulkhead (roof access hut) ----
+  if (rng.chance(0.65)) {
+    const hw = rng.range(2.0, 3.0);
+    const hd = rng.range(1.8, 2.6);
+    const hh = rng.range(2.2, 2.9);
+    const hx = cx + (rng.chance(0.5) ? 1 : -1) * Math.max(0, cw / 2 - hw / 2 - 1.0);
+    const hz = cz + (rng.chance(0.5) ? 1 : -1) * Math.max(0, cd / 2 - hd / 2 - 1.0);
+    trim.box({
+      x: hx,
+      y: topY + 0.2,
+      z: hz,
+      w: hw,
+      h: hh,
+      d: hd,
+      color: shadeHex(wallCol, 0.62),
+      roofColor: shadeHex(wallCol, 0.5),
+    });
+    // door slab + a warm service lamp beside it
+    trim.box({ x: hx, y: topY + 0.2, z: hz + hd / 2 + 0.03, w: 0.9, h: 2.0, d: 0.1, color: 0x151920 });
+    neon.box({ x: hx + 0.7, y: topY + 2.2, z: hz + hd / 2 + 0.06, w: 0.18, h: 0.12, d: 0.1, color: [1.7, 1.15, 0.62] });
+  }
+
   // ---- machinery ----
   const machineCount = rng.int(1, Math.min(4, 1 + Math.round((cw * cd) / 160)));
   for (let i = 0; i < machineCount; i++) {
@@ -282,13 +320,34 @@ function building(ctx, cell, district, rng, lot, base) {
 
   if (rng.chance(0.5)) {
     const tw = Math.min(cw, cd) * rng.range(0.18, 0.3);
+    const tx = cx + rng.range(-cw / 4, cw / 4);
+    const tz = cz + rng.range(-cd / 4, cd / 4);
+    const legH = 1.5;
+    // four legs — the tank stands on a steel frame instead of sitting flat
+    for (const [lx, lz] of [
+      [-tw * 0.3, -tw * 0.3],
+      [tw * 0.3, -tw * 0.3],
+      [-tw * 0.3, tw * 0.3],
+      [tw * 0.3, tw * 0.3],
+    ]) {
+      trim.cylinder({
+        x: tx + lx,
+        y: topY + 0.2,
+        z: tz + lz,
+        rBottom: 0.09,
+        rTop: 0.09,
+        height: legH,
+        segments: 5,
+        color: 0x39404a,
+      });
+    }
     trim.cylinder({
-      x: cx + rng.range(-cw / 4, cw / 4),
-      y: topY + 0.2,
-      z: cz + rng.range(-cd / 4, cd / 4),
+      x: tx,
+      y: topY + 0.2 + legH,
+      z: tz,
       rBottom: tw / 2,
       rTop: tw / 2,
-      height: rng.range(3, 6),
+      height: rng.range(2.6, 4.4),
       segments: 12,
       color: 0x4b535d,
       caps: true,
@@ -339,6 +398,11 @@ function building(ctx, cell, district, rng, lot, base) {
     const bh = rng.range(3.4, 6.5);
     const sy = y0 + Math.min(Math.max(4, height - bh - 5), rng.range(7, Math.max(9, height * 0.6)));
     placePanel(sign, neon, cx, cz, cw, cd, side, sy, bw, bh, district, rng, false);
+  }
+
+  // projecting blade sign over the pavement — the classic retail cue
+  if (height > 8 && rng.chance(0.4)) {
+    addBladeSign(sign, neon, cx, cz, cw, cd, rng.int(0, 3), y0 + 0.6, rng.range(1.9, 2.7), rng.range(1.1, 1.8), district, rng);
   }
 
   if (height > 42 && rng.chance(0.5)) {
@@ -454,6 +518,157 @@ function addAwning(trim, cx, cz, w, d, y, rng) {
       vScale: 0.4,
     });
   }
+}
+
+/**
+ * Ground-floor realism pass: a string course separating retail from the
+ * offices above, pilasters between the bays, and one proper entrance —
+ * door slab, lintel, step, canopy and a warm strip light underneath.
+ */
+function addShopfrontDetail(trimB, neonB, roofB, cx, cz, w, d, y, wallCol, plinthCol, rng) {
+  // string course at the shopfront head
+  trimB.box({
+    x: cx,
+    y: y + GROUND_FLOOR - 0.34,
+    z: cz,
+    w: w + 0.36,
+    h: 0.34,
+    d: d + 0.36,
+    color: shadeHex(wallCol, 1.18),
+    roofColor: shadeHex(wallCol, 1.3),
+  });
+
+  // pilasters between bays on all four faces
+  const pilCol = shadeHex(plinthCol, 1.14);
+  const strip = (len, horiz) => {
+    const n = Math.max(1, Math.floor(len / 5.6));
+    for (let i = 1; i < n; i++) {
+      const off = -len / 2 + (len * i) / n;
+      for (const sgn of [1, -1]) {
+        if (horiz) {
+          trimB.box({ x: cx + off, y, z: cz + sgn * (d / 2 + 0.11), w: 0.62, h: GROUND_FLOOR - 0.34, d: 0.24, color: pilCol });
+        } else {
+          trimB.box({ x: cx + sgn * (w / 2 + 0.11), y, z: cz + off, w: 0.24, h: GROUND_FLOOR - 0.34, d: 0.62, color: pilCol });
+        }
+      }
+    }
+  };
+  strip(w, true);
+  strip(d, false);
+
+  // ---- one proper entrance ----
+  const side = rng.int(0, 3);
+  const along = rng.range(-w / 4, w / 4);
+  const out = side === 0 ? [0, 1] : side === 1 ? [0, -1] : side === 2 ? [1, 0] : [-1, 0];
+  let dx = cx;
+  let dz = cz;
+  let dW = 2.1;
+  let dD = 0.26;
+  if (side === 0) {
+    dz = cz + d / 2 + 0.05;
+    dx = cx + along;
+  } else if (side === 1) {
+    dz = cz - d / 2 - 0.05;
+    dx = cx + along;
+  } else if (side === 2) {
+    dx = cx + w / 2 + 0.05;
+    dz = cz + along;
+    dW = 0.26;
+    dD = 2.1;
+  } else {
+    dx = cx - w / 2 - 0.05;
+    dz = cz + along;
+    dW = 0.26;
+    dD = 2.1;
+  }
+
+  // dark glass door slab + stone lintel
+  trimB.box({ x: dx, y: y + 0.06, z: dz, w: dW, h: 2.75, d: dD, color: 0x12161d, roofColor: 0x12161d });
+  trimB.box({
+    x: dx,
+    y: y + 2.82,
+    z: dz,
+    w: dW + 0.5,
+    h: 0.3,
+    d: dD + 0.12,
+    color: shadeHex(wallCol, 1.26),
+  });
+
+  // step slab onto the pavement
+  roofB.box({
+    x: dx + out[0] * 0.55,
+    y: y - 0.1,
+    z: dz + out[1] * 0.55,
+    w: side < 2 ? dW + 0.7 : 1.1,
+    h: 0.12,
+    d: side < 2 ? 1.1 : dD + 0.7,
+    color: 0x39404a,
+  });
+
+  // canopy + warm strip light underneath
+  const canW = side < 2 ? dW + 1.3 : 1.15;
+  const canD = side < 2 ? 1.15 : dD + 1.3;
+  trimB.box({
+    x: dx + out[0] * 0.5,
+    y: y + 3.12,
+    z: dz + out[1] * 0.5,
+    w: canW,
+    h: 0.16,
+    d: canD,
+    color: rng.chance(0.5) ? 0x5c3a28 : 0x2c454d,
+  });
+  neonB.box({
+    x: dx + out[0] * 0.5,
+    y: y + 3.0,
+    z: dz + out[1] * 0.5,
+    w: canW * 0.8,
+    h: 0.09,
+    d: canD * 0.8,
+    color: [1.55, 1.05, 0.55],
+  });
+}
+
+/**
+ * Blade sign: a narrow panel projecting over the pavement at right angles
+ * to the wall, edge-lit in neon.
+ */
+function addBladeSign(signB, neonB, cx, cz, w, d, side, y, bh, proj, district, rng) {
+  const u0 = rng.int(0, 3) / 4;
+  const v0 = rng.int(0, 1) / 2;
+  let x = cx;
+  let z = cz;
+  let sx = 0.32;
+  let sz = proj;
+  if (side === 0) z = cz + d / 2 + proj / 2;
+  else if (side === 1) z = cz - d / 2 - proj / 2;
+  else if (side === 2) {
+    x = cx + w / 2 + proj / 2;
+    sx = proj;
+    sz = 0.32;
+  } else {
+    x = cx - w / 2 - proj / 2;
+    sx = proj;
+    sz = 0.32;
+  }
+
+  signB.box({
+    x,
+    y,
+    z,
+    w: sx,
+    h: bh,
+    d: sz,
+    color: 0xffffff,
+    roofColor: 0x1a1d24,
+    uScale: 0.25, // one atlas column
+    vScale: 0.5, // one atlas row
+    uOff: u0,
+    vOff: v0,
+    roofUvScale: 0.1,
+  });
+  // neon edge strips top and bottom
+  neonB.box({ x, y: y + bh, z, w: sx + 0.1, h: 0.12, d: sz + 0.1, color: scaleNeon(district.neon, 1.8) });
+  neonB.box({ x, y: y - 0.13, z, w: sx + 0.1, h: 0.13, d: sz + 0.1, color: scaleNeon(district.neon, 1.8) });
 }
 
 function addPipes(trim, cx, cz, w, d, yBottom, yTop, rng) {
@@ -597,7 +812,7 @@ function ruin(ctx, cell, district, rng, lot, base) {
     uScale: 1 / district.moduleW,
     vScale: 1 / district.floorH,
     uOff: rng.int(0, 3),
-    vOff: rng.int(0, 3),
+    vOff: 0,
     shell: 0.06,
   });
   trim.box({ x: cx + 3, y: base - 0.9, z: cz + 2, w: 3, h: 2.4, d: 3, color: 0x4a5159 });

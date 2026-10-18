@@ -53,27 +53,40 @@ function makeGhostActor(spec, mat) {
     group.add(mesh);
     return mesh;
   };
+  // articulated silhouette: thigh → knee → shin, upper arm → elbow → fore,
+  // so ghosts stride and reach like the figures they stand in for
   const legs = [
-    part(0.17, 0.86, 0.2, -0.12, 0.86, 0, 0.43),
-    part(0.17, 0.86, 0.2, 0.12, 0.86, 0, 0.43),
+    part(0.185, 0.44, 0.21, -0.12, 0.86, 0, 0.22), // L thigh (hip pivot)
+    part(0.185, 0.44, 0.21, 0.12, 0.86, 0, 0.22), // R thigh
+  ];
+  const knees = [
+    part(0.15, 0.44, 0.19, -0.12, 0.42, 0, 0.22), // L shin (knee pivot)
+    part(0.15, 0.44, 0.19, 0.12, 0.42, 0, 0.22), // R shin
   ];
   const torso = part(0.46, 0.62, 0.28, 0, 1.16, 0);
   const arms = [
-    part(0.12, 0.56, 0.16, -0.3, 1.45, 0, 0.28),
-    part(0.12, 0.56, 0.16, 0.3, 1.45, 0, 0.28),
+    part(0.13, 0.3, 0.16, -0.3, 1.45, 0, 0.15), // L upper (shoulder pivot)
+    part(0.13, 0.3, 0.16, 0.3, 1.45, 0, 0.15), // R upper
+  ];
+  const elbows = [
+    part(0.115, 0.32, 0.14, -0.3, 1.15, 0, 0.16), // L forearm (elbow pivot)
+    part(0.115, 0.32, 0.14, 0.3, 1.15, 0, 0.16), // R forearm
   ];
   const head = part(0.23, 0.25, 0.24, 0, 1.6, 0);
   void torso;
   return {
     group,
     legs,
+    knees,
     arms,
+    elbows,
     head,
     pose: spec.pose ?? 'still',
-    phase: Math.random() * Math.PI * 2,
+    // deterministic sway offset — same seed, same ghost wobble
+    phase: Math.abs(Math.sin((spec.dx ?? 0) * 12.9898 + (spec.dz ?? 0) * 78.233)) * Math.PI * 2,
     drift: { x: spec.dx, z: spec.dz },
     dispose() {
-      for (const m of [...legs, ...arms, torso, head]) m.geometry.dispose();
+      for (const m of [...legs, ...knees, ...arms, ...elbows, torso, head]) m.geometry.dispose();
     },
   };
 }
@@ -174,7 +187,7 @@ export class ReconstructionPlayer {
         const mesh = new THREE.Mesh(geo, matFor(p.tint ?? tint, p.opacity ?? 0.16));
         mesh.position.set(p.dx, (p.y ?? 0) + p.h / 2, p.dz);
         this.group.add(mesh);
-        this.panels.push({ mesh, geo, baseOpacity: p.opacity ?? 0.6, phase: Math.random() * 6 });
+        this.panels.push({ mesh, geo, baseOpacity: p.opacity ?? 0.6, phase: Math.abs(((p.dx ?? 0) * 3.1 + (p.dz ?? 0) * 5.7) % 6) });
       }
 
       // ---- focus light --------------------------------------------------
@@ -270,19 +283,37 @@ export class ReconstructionPlayer {
       a.head.rotation.y = Math.sin(time * 0.7 + a.phase) * 0.4;
       if (a.pose === 'reach') {
         a.arms[0].rotation.x = -1.15 + s * 0.06;
+        a.elbows[0].rotation.x = -0.3 - s * 0.04; // forearm reaches through
         a.arms[1].rotation.x = -0.5 - s * 0.04;
+        a.elbows[1].rotation.x = -0.7;
+        a.legs[0].rotation.x = 0.08;
+        a.legs[1].rotation.x = -0.14;
+        a.knees[1].rotation.x = 0.18; // weight on the back foot
       } else if (a.pose === 'walk') {
         a.legs[0].rotation.x = s * 0.5;
         a.legs[1].rotation.x = -s * 0.5;
+        // knees fold through the swing exactly as the bystander solver does
+        a.knees[0].rotation.x = Math.max(0, -s) * 0.85;
+        a.knees[1].rotation.x = Math.max(0, s) * 0.85;
         a.arms[0].rotation.x = -s * 0.3;
         a.arms[1].rotation.x = s * 0.3;
+        a.elbows[0].rotation.x = -(0.18 + Math.max(0, s) * 0.3);
+        a.elbows[1].rotation.x = -(0.18 + Math.max(0, -s) * 0.3);
       } else if (a.pose === 'turn') {
         a.group.rotation.y += dt * 0.35;
         a.legs[0].rotation.x = s * 0.12;
         a.legs[1].rotation.x = -s * 0.12;
+        a.knees[0].rotation.x = Math.abs(s) * 0.3;
+        a.knees[1].rotation.x = Math.abs(s) * 0.3;
+        a.elbows[0].rotation.x = -0.14;
+        a.elbows[1].rotation.x = -0.14;
       } else {
         a.arms[0].rotation.x = s * 0.05;
         a.arms[1].rotation.x = -s * 0.05;
+        a.elbows[0].rotation.x = -0.12 - Math.max(0, s) * 0.08;
+        a.elbows[1].rotation.x = -0.12 - Math.max(0, -s) * 0.08;
+        a.knees[0].rotation.x = 0.06;
+        a.knees[1].rotation.x = 0.06;
       }
     }
     for (const panel of this.panels) {

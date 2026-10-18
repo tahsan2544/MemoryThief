@@ -254,13 +254,20 @@ function drawWindows(ctx, ectx, style, tint, rng, size, emModule) {
   }[style] ?? { w: m - 30, h: m - 40, ox: 15, oy: 20, lit: 0.4, warm: 0.4, mullion: false };
 
   const isLit = [];
-  for (let my = 0; my < MODULES; my++) {
+  // Three upper-floor rows. The BOTTOM module row (canvas y 3m..4m, which is
+  // texture v 0..1 because canvas textures are Y-flipped) is the street level,
+  // and every facade box samples v = 0 at its base — so that row is painted as
+  // a shopfront band instead of another storey of office windows.
+  for (let my = 0; my < MODULES - 1; my++) {
     for (let mx = 0; mx < MODULES; mx++) {
       const x = mx * m + cfg.ox;
       const y = my * m + cfg.oy;
       const w = cfg.w;
       const h = cfg.h;
 
+      // lintel over the window head
+      ctx.fillStyle = shade(tint.frame, 16);
+      ctx.fillRect(x - 8, y - 9, w + 16, 5);
       // frame
       ctx.fillStyle = shade(tint.frame, rng.range(-8, 8));
       ctx.fillRect(x - 4, y - 4, w + 8, h + 8);
@@ -288,20 +295,39 @@ function drawWindows(ctx, ectx, style, tint, rng, size, emModule) {
         ctx.fillRect(x + w / 2 - 2, y, 4, h);
       }
 
-      if (style === 'brick' || style === 'garden') {
-        // sill
-        ctx.fillStyle = shade(tint.frame, -18);
-        ctx.fillRect(x - 7, y + h + 2, w + 14, 6);
+      // venetian blinds or a curtain pulled to one side
+      if (rng.chance(0.26)) {
+        ctx.fillStyle = rgba(0x0a0d12, 0.55);
+        const drop = rng.range(0.2, 0.65);
+        for (let b = y + 2; b < y + h * drop; b += 5) ctx.fillRect(x + 1, b, w - 2, 2);
+      } else if (rng.chance(0.14)) {
+        ctx.fillStyle = rgba(0x0a0d12, 0.3);
+        ctx.fillRect(x, y, w * rng.range(0.3, 0.5), h);
+      }
+
+      // sill (every style now), recessed shadow under it, weathering streaks
+      ctx.fillStyle = shade(tint.frame, -20);
+      ctx.fillRect(x - 7, y + h + 3, w + 14, 5);
+      ctx.fillStyle = rgba(0x000000, 0.3);
+      ctx.fillRect(x - 5, y + h + 8, w + 10, 6);
+      for (let sI = 0; sI < 3; sI++) {
+        ctx.fillStyle = rgba(0x04060a, rng.range(0.05, 0.13));
+        ctx.fillRect(
+          x + rng.range(0, Math.max(1, w - 7)),
+          y + h + 12,
+          rng.range(2, 6),
+          rng.range(8, m * 0.6),
+        );
       }
 
       if (style === 'garden') {
         // planter box under the window
         ctx.fillStyle = '#1d2a1c';
-        ctx.fillRect(x - 6, y + h + 9, w + 12, 12);
+        ctx.fillRect(x - 6, y + h + 14, w + 12, 12);
         for (let i = 0; i < 6; i++) {
           ctx.fillStyle = `rgba(${60 + rng.int(0, 50)},${120 + rng.int(0, 70)},${60 + rng.int(0, 40)},0.85)`;
           ctx.beginPath();
-          ctx.ellipse(x + rng.range(4, w - 4), y + h + 9, rng.range(4, 9), rng.range(4, 8), 0, 0, Math.PI * 2);
+          ctx.ellipse(x + rng.range(4, w - 4), y + h + 14, rng.range(4, 9), rng.range(4, 8), 0, 0, Math.PI * 2);
           ctx.fill();
         }
       }
@@ -311,19 +337,28 @@ function drawWindows(ctx, ectx, style, tint, rng, size, emModule) {
         for (let b = 1; b < 3; b++) ctx.fillRect(x, y + (h / 3) * b, w, 3);
       }
 
+      if (style === 'brick') {
+        // soldier-course arch hint above the lintel
+        ctx.fillStyle = rgba(0x000000, 0.18);
+        ctx.fillRect(x - 10, y - 15, w + 20, 4);
+      }
+
       // ---- emissive ----
       const lit = rng.chance(cfg.lit);
-      isLit.push({ x, y, w, h, lit, warm: rng.chance(cfg.warm), mx, my });
+      isLit.push({ x, y, w, h, lit, warm: rng.chance(cfg.warm) });
     }
   }
+
+  // street-level retail band (bottom module row)
+  const shopBays = drawShopfront(ctx, tint, rng, m);
 
   const s = emModule / m;
   for (const win of isLit) {
     if (!win.lit) continue;
     const palette = win.warm ? litWarm : litCool;
     const col = palette[rng.int(0, palette.length - 1)];
-    const X = win.mx * emModule + cfg.ox * s;
-    const Y = win.my * emModule + cfg.oy * s;
+    const X = win.x * s;
+    const Y = win.y * s;
     const W = win.w * s;
     const H = win.h * s;
 
@@ -332,6 +367,9 @@ function drawWindows(ctx, ectx, style, tint, rng, size, emModule) {
     g.addColorStop(1, rgba(col, 0.55));
     ectx.fillStyle = g;
     ectx.fillRect(X, Y, W, H);
+    // ceiling strip light near the top of the room
+    ectx.fillStyle = rgba(col, 0.98);
+    ectx.fillRect(X, Y, W, Math.max(1, H * 0.1));
 
     // silhouette details: blinds / curtains / figures
     const mode = rng.int(0, 3);
@@ -348,6 +386,126 @@ function drawWindows(ctx, ectx, style, tint, rng, size, emModule) {
       ectx.fillRect(X + rng.range(0, W - fw), Y + H * 0.35, fw, H * 0.65);
     }
   }
+
+  // shopfront interiors spill warm light onto the pavement
+  for (const bay of shopBays) {
+    if (!bay.lit) continue;
+    const palette = bay.warm ? litWarm : litCool;
+    const col = palette[rng.int(0, palette.length - 1)];
+    const X = bay.x * s;
+    const Y = bay.y * s;
+    const W = bay.w * s;
+    const H = bay.h * s;
+
+    const g = ectx.createLinearGradient(X, Y, X, Y + H);
+    g.addColorStop(0, rgba(col, 0.95));
+    g.addColorStop(0.55, rgba(col, 0.6));
+    g.addColorStop(1, rgba(col, 0.35));
+    ectx.fillStyle = g;
+    ectx.fillRect(X, Y, W, H);
+    // ceiling strip lights
+    ectx.fillStyle = rgba(col, 0.98);
+    ectx.fillRect(X, Y, W, Math.max(1, H * 0.12));
+    // goods on shelves / a counter
+    if (rng.chance(0.6)) {
+      ectx.fillStyle = 'rgba(0,0,0,0.6)';
+      const cwid = W * rng.range(0.35, 0.8);
+      ectx.fillRect(X + rng.range(0, Math.max(0.01, W - cwid)), Y + H * 0.6, cwid, H * 0.4);
+    }
+    // a shopper at the glass
+    if (rng.chance(0.3)) {
+      ectx.fillStyle = 'rgba(0,0,0,0.7)';
+      const fw = Math.max(1, W * 0.1);
+      ectx.fillRect(X + rng.range(0, Math.max(0.01, W - fw)), Y + H * 0.28, fw, H * 0.72);
+    }
+  }
+}
+
+/**
+ * Ground-floor retail band: the bottom module row of the facade texture.
+ * Facade boxes sample texture v = 0 at their base, so this row always lands
+ * at street level — display glazing with mullions, recessed doors with kick
+ * plates and push bars, and a sign fascia that the neon geometry sits in
+ * front of.
+ */
+function drawShopfront(ctx, tint, rng, m) {
+  const y0 = (MODULES - 1) * m;
+  const fascia = 26; // sign band under the first floor
+  const kick = 12; // metal kick plate
+  const glassY = y0 + fascia;
+  const glassH = m - fascia - kick - 10;
+  const bw = m - 18;
+  const ox = 9;
+  const bays = [];
+
+  // bulkhead behind everything
+  ctx.fillStyle = shade(tint.wall, -24);
+  ctx.fillRect(0, y0, m, m);
+  ctx.fillStyle = rgba(0x000000, 0.35);
+  ctx.fillRect(0, y0, m, 4); // shadow line where the band meets the floor above
+
+  for (let mx = 0; mx < MODULES; mx++) {
+    const x = mx * m + ox;
+    // bay frame
+    ctx.fillStyle = shade(tint.frame, 8);
+    ctx.fillRect(x - 5, glassY - 5, bw + 10, glassH + 10);
+
+    if (mx % 2 === 1) {
+      // ---- recessed door with side lights ----
+      const dw = 46;
+      const dx = x + (bw - dw) / 2;
+      ctx.fillStyle = shade(tint.frame, -24);
+      ctx.fillRect(dx, glassY + 4, dw, glassH - 4);
+      const gd = ctx.createLinearGradient(dx, glassY + 8, dx, glassY + glassH - 24);
+      gd.addColorStop(0, shade(tint.glass, 20));
+      gd.addColorStop(1, shade(tint.glass, -2));
+      ctx.fillStyle = gd;
+      ctx.fillRect(dx + 5, glassY + 8, dw - 10, glassH - 36);
+      ctx.fillStyle = shade(tint.frame, 30); // push bar
+      ctx.fillRect(dx + dw - 13, glassY + glassH * 0.45, 3, 26);
+      ctx.fillStyle = shade(0x10141a, 0); // kick plate
+      ctx.fillRect(dx + 2, glassY + glassH - 24, dw - 4, 20);
+      // narrow side lights beside the door
+      for (const [sx0, sw] of [[x, dx - x - 6], [dx + dw + 6, x + bw - dx - dw - 6]]) {
+        if (sw <= 4) continue;
+        ctx.fillStyle = shade(tint.glass, 8);
+        ctx.fillRect(sx0, glassY + 6, sw, glassH - 12);
+      }
+      bays.push({ x: dx + 5, y: glassY + 8, w: dw - 10, h: glassH - 36, lit: rng.chance(0.8), warm: true });
+    } else {
+      // ---- display glazing with mullions ----
+      const g = ctx.createLinearGradient(x, glassY, x, glassY + glassH);
+      g.addColorStop(0, shade(tint.glass, 26));
+      g.addColorStop(0.6, shade(tint.glass, 6));
+      g.addColorStop(1, shade(tint.glass, -8));
+      ctx.fillStyle = g;
+      ctx.fillRect(x, glassY, bw, glassH);
+      ctx.fillStyle = rgba(tint.frame, 0.95);
+      for (let k = 1; k < 3; k++) ctx.fillRect(x + (bw / 3) * k - 2, glassY, 4, glassH);
+      // counter silhouette behind the glass
+      ctx.fillStyle = rgba(0x000000, 0.35);
+      ctx.fillRect(x + 6, glassY + glassH * 0.62, bw - 12, glassH * 0.38);
+      // reflection wedge
+      ctx.fillStyle = 'rgba(170,205,255,0.10)';
+      ctx.beginPath();
+      ctx.moveTo(x, glassY + glassH);
+      ctx.lineTo(x + bw * 0.55, glassY);
+      ctx.lineTo(x + bw * 0.82, glassY);
+      ctx.lineTo(x + bw * 0.27, glassY + glassH);
+      ctx.closePath();
+      ctx.fill();
+      bays.push({ x, y: glassY, w: bw, h: glassH, lit: rng.chance(0.85), warm: rng.chance(0.82) });
+    }
+  }
+
+  // kick plate strip + fascia sign band
+  ctx.fillStyle = rgba(0x0a0d12, 0.92);
+  ctx.fillRect(0, y0 + m - kick, m, kick);
+  ctx.fillStyle = shade(tint.wall, -34);
+  ctx.fillRect(0, y0, m, fascia);
+  ctx.fillStyle = rgba(0xffffff, 0.06);
+  ctx.fillRect(0, y0 + fascia - 3, m, 3);
+  return bays;
 }
 
 /** Cached facade pair for a district style + variant index. */

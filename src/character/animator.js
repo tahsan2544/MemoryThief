@@ -243,7 +243,7 @@ export class CharacterAnimator {
       t.torsoY += shift * 0.05 * idleK;
       t.hipsY += -Math.abs(shift) * 0.012 * idleK;
 
-      const beat = this.idleTime % 9.5; // 0..9.5 s cycle of four beats
+      const beat = this.idleTime % 13.4; // 0..13.4 s cycle of six beats
       const window = (a, len) => clamp((beat - a) / len, 0, 1);
       if (beat < 1.4) {
         // glance down at the extraction glove
@@ -264,13 +264,31 @@ export class CharacterAnimator {
         t.headY += 0.95 * k;
         t.torsoY += 0.22 * k;
         t.armOutL += 0.03 * k;
-      } else if (beat >= 8.2) {
+      } else if (beat >= 8.2 && beat < 9.6) {
         // settle the weight: a small stamp through the knees
         const k = Math.sin(window(8.2, 1.3) * Math.PI) * idleK;
         t.kneeL += 0.22 * k;
         t.kneeR += 0.12 * k;
         t.hipsY += -0.02 * k;
         t.torsoX += 0.03 * k;
+      } else if (beat >= 10.1 && beat < 11.5) {
+        // roll the shoulders back — one slow circuit, hands coming up
+        const k = Math.sin(window(10.1, 1.4) * Math.PI) * idleK;
+        t.torsoY += Math.sin(this.idleTime * 4.4) * 0.05 * k;
+        t.torsoX += -0.03 * k;
+        t.armOutL += 0.05 * k;
+        t.armOutR += 0.05 * k;
+        t.armL += -0.12 * k;
+        t.armR += -0.12 * k;
+        t.headX += 0.1 * k;
+      } else if (beat >= 11.9) {
+        // deep breath + neck roll: look down, sweep up and around
+        const w = window(11.9, 1.5);
+        const k = Math.sin(w * Math.PI) * idleK;
+        t.headY += Math.sin(w * Math.PI * 2) * 0.6 * k;
+        t.headX += (w < 0.5 ? 0.28 : -0.12) * k;
+        t.torsoX += -0.025 * k;
+        t.hipsY += -0.008 * k;
       }
     }
 

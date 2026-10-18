@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { MeshBuilder, rgb } from '../utils/geo.js';
+import { fabricNormal } from '../npc/figureTextures.js';
 
 /**
  * RIVEN VALE — the playable character, built entirely from procedural
@@ -46,12 +47,17 @@ let sharedMaterials = null;
 
 function getMaterials() {
   if (!sharedMaterials) {
+    // one shared procedural weave normal — the coat, trousers, straps and
+    // boots all catch light like worn cloth instead of bare plastic
+    const fabric = fabricNormal();
     sharedMaterials = {
       solid: new THREE.MeshStandardMaterial({
         vertexColors: true,
         roughness: 0.7,
         metalness: 0.14,
         envMapIntensity: 0.7,
+        normalMap: fabric,
+        normalScale: new THREE.Vector2(0.4, 0.4),
       }),
       glow: new THREE.MeshBasicMaterial({
         vertexColors: true,
@@ -120,6 +126,7 @@ export function createRivenVale() {
       b.box({ x: 0, y: -0.32, z: 0, w: 0.165, h: 0.33, d: 0.2, color: TROUSER }); // shin
       b.box({ x: 0, y: -0.2, z: -0.015, w: 0.17, h: 0.15, d: 0.21, color: TROUSER }); // calf
       b.box({ x: 0, y: -0.4, z: 0, w: 0.175, h: 0.09, d: 0.205, color: TRIM }); // boot cuff
+      b.box({ x: 0.05, y: -0.37, z: 0.06, w: 0.05, h: 0.05, d: 0.09, color: METAL }); // cuff buckle
       b.box({ x: 0, y: -0.47, z: 0.05, w: 0.185, h: 0.08, d: 0.31, color: BOOT }); // boot
       b.box({ x: 0, y: -0.48, z: 0.05, w: 0.19, h: 0.02, d: 0.32, color: BOOT }); // sole
     });
@@ -158,6 +165,12 @@ export function createRivenVale() {
     b.box({ x: 0, y: 0.22, z: 0, w: 0.46, h: 0.24, d: 0.31, color: TROUSER });
     // coat shell over it
     b.box({ x: 0, y: -0.01, z: 0, w: 0.53, h: 0.5, d: 0.36, color: COAT });
+    // zip line down the front + hem trim + shoulder epaulettes
+    b.box({ x: 0, y: 0.0, z: 0.175, w: 0.04, h: 0.47, d: 0.03, color: 0x0e1016 });
+    b.box({ x: 0, y: 0.055, z: 0.18, w: 0.05, h: 0.05, d: 0.03, color: METAL }); // zip pull
+    b.box({ x: 0, y: -0.045, z: 0, w: 0.54, h: 0.055, d: 0.37, color: COAT_LIT }); // hem
+    b.box({ x: 0.19, y: 0.53, z: 0, w: 0.15, h: 0.04, d: 0.25, color: COAT_LIT }); // L epaulette
+    b.box({ x: -0.19, y: 0.53, z: 0, w: 0.15, h: 0.04, d: 0.25, color: COAT_LIT }); // R epaulette
     // shoulders
     b.box({ x: 0, y: 0.43, z: 0, w: 0.57, h: 0.14, d: 0.34, color: COAT_LIT });
     // collar behind the neck
@@ -198,6 +211,8 @@ export function createRivenVale() {
     b.box({ x: 0, y: 0.055, z: 0.01, w: 0.21, h: 0.25, d: 0.23, color: GLOVE }); // face shell
     b.box({ x: 0, y: -0.005, z: 0.055, w: 0.15, h: 0.06, d: 0.15, color: TRIM }); // jaw
     b.box({ x: 0, y: 0.03, z: 0.125, w: 0.1, h: 0.07, d: 0.05, color: TRIM }); // respirator
+    b.box({ x: 0.055, y: 0.035, z: 0.14, w: 0.03, h: 0.035, d: 0.03, color: METAL }); // exhale valve
+    b.box({ x: -0.055, y: 0.035, z: 0.14, w: 0.03, h: 0.035, d: 0.03, color: METAL });
     b.box({ x: 0, y: 0.07, z: -0.05, w: 0.25, h: 0.26, d: 0.24, color: COAT }); // hood
     b.box({ x: 0, y: 0.1, z: -0.16, w: 0.15, h: 0.11, d: 0.1, color: COAT }); // hood point
     b.box({ x: 0, y: 0.28, z: 0.06, w: 0.24, h: 0.06, d: 0.17, color: COAT_LIT }); // brim

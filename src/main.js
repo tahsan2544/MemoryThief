@@ -1602,6 +1602,12 @@ window.__MT_SOURCES__ = () =>
     z: s.z,
     radius: s.radius,
   })) ?? [];
+window.__MT_SOURCE_FACE__ = (id, yaw) => {
+  const s = (world?.memorySites?.sources ?? []).find((x) => x.id === id);
+  if (!s?.npc) return false;
+  s.npc.setYaw(yaw);
+  return true;
+};
 window.__MT_NEAR__ = () => ({
   source: nearSourceRec?.id ?? null,
   interactable: nearInteractable?.id ?? null,

@@ -197,7 +197,7 @@ it.
 
 ## 🏙️ Living city & stealth
 
-Twelve six-mesh figures walk the streets with real behaviour, and a readable
+Twelve ten-mesh figures walk the streets with real behaviour, and a readable
 stealth system decides what the city notices about you — and *why*.
 
 - 👮 **Archetypes** — 3 security guards, 6 civilians, 2 market vendors and 1
@@ -341,7 +341,7 @@ SwiftShader) drove three changes, all verifiable through the smoke suite:
 - 🕐 **Shadow-map cadence** — the depth pass no longer re-renders every
   frame; `shadowMap.autoUpdate` is off and the map refreshes on a fixed
   schedule (Low 0 Hz · Medium 4 Hz · High 6 Hz). Measured: the depth pass
-  costs about **+150 draw calls / +354k triangles** whenever it lands, so
+  costs about **+166 draw calls / +430k triangles** whenever it lands, so
   skipping most of them roughly halves the render cost on weak GPUs.
 - 💡 **Distance-based light budget** — only the *nearest* N district/landmark
   accent lights are visible (N from the preset: Low 0 · Medium 8 · High 10),
@@ -357,9 +357,9 @@ completed app frames):
 
 | preset | render scale | draw calls | triangles | point lights | shadow Hz | motes | sustained FPS |
 | ------ | ------------ | ---------- | --------- | ------------ | --------- | ----- | ------------- |
-| low    | 0.75         | 407        | 467,270   | 0            | 0         | 0     | 1.07          |
-| medium | 1.00         | 580        | 822,370   | 8            | 4         | 240   | 0.47          |
-| high   | 1.00         | 589        | 828,140   | 10           | 6         | 460   | 0.47          |
+| low    | 0.75         | 446        | 623,434   | 0            | 0         | 0     | 0.66          |
+| medium | 1.00         | 659        | 1,054,236 | 8            | 4         | 240   | 0.27          |
+| high   | 1.00         | 649        | 1,069,342 | 10           | 6         | 460   | 0.26          |
 
 *(Measured under SwiftShader software rendering; the absolute FPS there is
 not representative of real hardware — the relative deltas are the point.)*
@@ -390,13 +390,13 @@ only the drawing buffer changes:
 
 | render scale | pixels | sustained FPS | frame time |
 | ------------ | ------ | ------------- | ---------- |
-| 100%         | 1.00×  | 0.47          | 2.13 s     |
-| 75%          | 0.56×  | 0.73          | 1.37 s     |
-| 50%          | 0.25×  | 1.40          | 0.71 s     |
+| 100%         | 1.00×  | 0.27          | 3.70 s     |
+| 75%          | 0.56×  | 0.46          | 2.17 s     |
+| 50%          | 0.25×  | 0.93          | 1.08 s     |
 
-**A quarter of the pixels buys ~3× the frame rate** (0.47 → 1.40). Fitting
-`frame time = fixed + fill × pixels` leaves roughly **0.24 s of fixed cost
-against ~1.9 s of fill at 100% — about 90% of every frame is per-pixel
+**A quarter of the pixels buys ~3.5× the frame rate** (0.27 → 0.93). Fitting
+`frame time = fixed + fill × pixels` leaves roughly **0.20 s of fixed cost
+against ~3.5 s of fill at 100% — about 95% of every frame is per-pixel
 rasterisation.** Everything else in the preset table (2× the triangles,
 0 → 10 lights, shadows and bloom on or off) barely moved the needle, because
 all of it was paying the same per-pixel bill.
@@ -410,8 +410,10 @@ all of it was paying the same per-pixel bill.
   on the only path that reaches the default framebuffer (Medium and High
   draw into the composer's non-multisampled target, where the flag never did
   anything). Context MSAA is now off, the dead flag is gone, and Low went
-  **0.33 → 1.07 fps at the same 0.75 scale**, with its synchronous render
-  stage falling **136 ms → 4.8 ms**. The load-independent proof: Low went
+  **0.33 → 1.07 fps at the same 0.75 scale** (measured then; today's heavier
+  build re-measures Low at 0.66 fps — see the preset table above), with its
+  synchronous render stage falling **136 ms → 4.8 ms**. The load-independent
+  proof: Low went
   from running *2.2× slower* than Medium at that identical scale — with half
   the features — to *1.5× faster* than it, the ordering its feature set
   always implied.
@@ -477,22 +479,29 @@ sliding over mathematically perfect planes. Every character also gets a soft
 cast, one draw call total, so feet read as touching the ground even between
 shadow-map refreshes.
 
-**Characters.** Each bystander is still six meshes (same draw-call cost), but
-every limb is *merged* from several boxes — thigh/shin/foot,
-upper/forearm/hand, pelvis/chest/shoulders/collar, neck/skull/hair — so a
-person reads as a person. Roles get distinct silhouettes: guards are broad
-with shoulder pads and a helmet, vendors wear an apron, investigation
-targets carry a coat tail and satchel. A per-seed height/build jitter keeps
-a crowd from looking cloned.
+**Characters.** Each bystander is **ten meshes** — thigh, shin, upper arm,
+forearm, torso and head all move as separate pivots — so knees and elbows are
+real joints the clip solver bends, not painted creases. Heads carry a
+**procedural face atlas** (seeded eyes / brows / mouth per person, plus a
+guard-visor variant) on a lighter face plate, and the coat/skin materials
+share a **fabric normal map** (basket-weave relief) so light catches cloth
+instead of sliding over flat colour. Roles keep distinct silhouettes: guards
+are broad with shoulder pads and a helmet, vendors wear an apron and
+bandanna, investigation targets carry a coat tail and satchel, station
+attendants get a cap and reflective vest. Per-seed height, build, skin,
+hair and palette keep a crowd from looking cloned.
 
-**Animation — many types.** `src/npc/npcAnim.js` is a clip library of ~18
-procedural poses (walk, brisk walk, run, idle, weight-shift, phone-check,
-arms-crossed, at-attention, lean, sit, carry, talk, point, wave, vendor-hail,
-device-check, search-sweep, cautious-investigate, startle). `clipFor()` picks
-the right one from an agent's **role + AI mode + awareness**, so guards
-stand at attention, vendors call out, searching figures shield their eyes
-and scan, and the mark is always checking a device. The rig eases toward
-each clip's targets, so mode/alert changes blend instead of snapping.
+**Animation — everyone moves differently.** `src/npc/npcAnim.js` is a clip
+library of **27 procedural poses** (walk, guard march, brisk walk, carry,
+run, a family of idles, arms-crossed, at-attention, lean, sit, talk, point,
+wave, vendor-hail/wipe, guard-scan, clerk-gaze, warden-keys, device-check,
+search-sweep, cautious-investigate, startle). `clipFor()` picks the right
+one from an agent's **role + AI mode + awareness + seed**: guards march and
+scan, vendors wipe the counter and call out, clerks gaze up at the skyline,
+wardens jangle keys — and every figure's stride length, cadence and arm
+swing come from its own **seeded gait style**, so no two walks match. Seeded
+per-figure idle pools pick the pause beats too. The rig eases toward each
+clip's targets, so mode/alert changes blend instead of snapping.
 
 Riven Vale gained new states, all additive on top of locomotion so they can
 never break the walk/run/jump poses: **crouch/sneak** (hold `Ctrl`), the
@@ -554,8 +563,9 @@ locomotion: a **turn-on-the-spot shuffle** (detected from the rig's own yaw
 rate — spinning in place now steps instead of statue-pivoting), a deeper
 **crouch-walk**, sprint elbows folded to 0.9, take-off tuck and
 ground-reaching drop, a knee-bending **landing absorb**, and a rotating set
-of four **idle beats** (glance at the glove, adjust the collar strap, an
-over-the-shoulder check, a weight-stamp) on a 9.5 s cycle. `fireGesture()`
+of six **idle beats** (glance at the glove, adjust the collar strap, an
+over-the-shoulder check, a weight-stamp, a shoulder roll, a deep breath /
+neck roll) on a 13.4 s cycle. `fireGesture()`
 is a named table — `reach`, `point`, `brace`, `adjust`, `wave` — used by
 interactions.
 
@@ -592,7 +602,18 @@ actually articulating).
   (2×2 cells) buckets keyed by material and merged; props are instanced;
   chunks are distance-culled on top of frustum culling.
 - 🖼️ **Textures** are painted into canvases at startup (facades, road, water
-  normal, signage) and shared by every chunk that uses them.
+  normal, signage) and shared by every chunk that uses them. Facades are a
+  4×4 module grid whose **bottom row is a street-level shopfront band** —
+  display glazing, recessed doors with kick plates, lit interiors — because
+  every facade box samples texture v = 0 at its base; the upper rows carry
+  lintels, sills, blinds and weathering streaks per style.
+- 🏙️ **Buildings** stack podium / shaft / crown tiers with a **cornice at
+  every setback**, and the ground floor gets pilasters, a string course, one
+  lit entrance (door, lintel, step, canopy, strip light) and projecting
+  **blade signs**; roofs gain stair bulkheads and legged water tanks beside
+  the existing machinery and masts. Every piece joins the existing
+  per-chunk buckets, so the richer silhouette costs **zero extra draw
+  calls**.
 - 🧱 **Collision without a physics engine** — `src/player/collision.js`
   collects boxes and circles while the world is built into a spatial hash.
   The player is an XZ circle (r 0.34, height 1.8, step 0.36) moved per-axis
@@ -639,8 +660,9 @@ src/
                       agents, hide spots, zones), world orchestrator
   environment/        sky + env map, lighting rig, rain
   character/          Riven Vale model + procedural animator
-  npc/                bystander figures, NPC agent (perception + behaviour
-                      state machine)
+  npc/                bystander figures (ten-mesh articulated rigs, procedural
+                      face atlas + fabric normals), NPC agent (perception +
+                      behaviour state machine)
   stealth/            stealth system (awareness states + reasons)
   player/             collision system, movement controller, third-person camera
   interaction/        interactable objects placed from the layout
@@ -657,6 +679,12 @@ scripts/probe-ui.mjs  focused UI probe (mini-map, map/journal keys, camera
                       ground clamp, articulated gait)
 scripts/probe-geo.mjs focused geometry probe (how renderer.info counts
                       geometries; same-seed rebuild determinism)
+scripts/probe-figures.mjs visual probe — per-role figure close-ups (body
+                      poses, 1 m face shots via the 2.2 m boom clamp), NPC
+                      memory archetype, city views
+scripts/probe-buildings.mjs visual probe — every inspect fly-camera view plus
+                      pavement-level close-ups aimed at real building lines
+                      (reads `__MT_LAYOUT__` cells)
 ```
 
 ## 🧪 Testing
@@ -797,15 +825,17 @@ Once the journal holds both, it shows the discrepancy and lets you tag which
 account you believe (`1` / `2`) — the glove keeps the fragment either way.
 
 At the default (medium) preset and 12×12 grid the world is ~410 merged
-meshes, ~4 900 instanced props and roughly 500 k generated triangles, drawn
-in 130–450 calls depending on how much of the city is on screen (play mode
-culls more aggressively than the overview). The memory layer adds four
-six-mesh figures, one small annex and a handful of additive markers — under
-50 extra draw calls, and only while they are on screen. The city adds twelve
-six-mesh agents (each one mesh per body part, shared geometry and materials
-per archetype) for ~440 total draw calls in the street test — comfortably
-inside the budget; the figures' documented scale-up route is instancing if
-the population grows.
+meshes, ~5 000 instanced props and roughly 725 k generated triangles. In the
+smoke suite's street test — twelve ten-mesh agents walking, rain and the
+shadow pass on — the city renders in **372 draw calls against a budget of
+800**; play mode culls the district around you while the overview camera
+sees more of it, and a peak frame (the one that runs the shadow depth pass)
+costs a little more. The memory layer adds the articulated ghost actors
+(ten meshes per figure), one small annex and a handful of additive markers —
+a few dozen extra draw calls, and only while they are on screen. Each agent
+draws one call per articulated part with shared geometry and materials per
+archetype; the figures' documented scale-up route is instancing if the
+population grows.
 
 ## ⚠️ Known limitations
 
@@ -813,9 +843,10 @@ the population grows.
   space; every other door is visual and buildings are solid blocks. (The
   interior shells mean a camera that clips inside a wall reads as a dark
   room rather than seeing through the city — a visual fix, not a room.)
-- 🚶 **Only Riven Vale is articulated** — bystanders keep the merged-limb
-  rig (thigh/shin drawn as one solid, animated by the clip library); giving
-  the crowd real knees and elbows is the next rig pass.
+- 🚶 **Crowd articulation ships** — bystanders now share the jointed rig
+  (knees, elbows, face atlas) that Riven Vale pioneered; twelve agents stay
+  one draw call per mesh, and the documented scale-up route beyond that is
+  instancing, which the current population does not need.
 - The city edge is sealed by an **invisible boundary wall** (the world just
   ends beyond the outer road); everything *inside* the city uses visible
   blockers.

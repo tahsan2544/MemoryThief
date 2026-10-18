@@ -121,6 +121,10 @@ export function buildMemorySites({ layout, colliders, interactables, root }) {
       dx: -2.7,
       dz: 1.4,
       seed: 3,
+      role: 'attendant',
+      anim: 'attendantBoard',
+      coat: 0x3f4a5e,
+      accent: 0x8a6d3a,
     },
     {
       id: 'src-market-trader',
@@ -130,6 +134,10 @@ export function buildMemorySites({ layout, colliders, interactables, root }) {
       dx: 2.9,
       dz: 1.0,
       seed: 7,
+      role: 'trader',
+      anim: 'traderCount',
+      coat: 0x5a4436,
+      accent: 0x9a6b3a,
     },
     {
       id: 'src-archive-warden',
@@ -139,6 +147,10 @@ export function buildMemorySites({ layout, colliders, interactables, root }) {
       dx: -2.9,
       dz: 1.2,
       seed: 11,
+      role: 'warden',
+      anim: 'wardenKeys',
+      coat: 0x33384a,
+      accent: 0x5f6a7d,
     },
     {
       id: 'src-glassline-clerk',
@@ -148,6 +160,10 @@ export function buildMemorySites({ layout, colliders, interactables, root }) {
       dx: 3.1,
       dz: -1.2,
       seed: 5,
+      role: 'clerk',
+      anim: 'clerkGaze',
+      coat: 0x4a4550,
+      accent: 0x7d7f8c,
     },
   ];
 
@@ -156,7 +172,13 @@ export function buildMemorySites({ layout, colliders, interactables, root }) {
     if (!anchor) continue; // landmark absent in this layout — skip, never crash
     const x = anchor.x + spec.dx;
     const z = anchor.z + spec.dz;
-    const npc = createBystander({ seed: spec.seed });
+    const npc = createBystander({
+      seed: spec.seed,
+      role: spec.role ?? 'civilian',
+      coat: spec.coat,
+      accent: spec.accent,
+    });
+    if (spec.anim) npc.setAnim(spec.anim); // each source owns a unique idle
     npc.setPosition(x, base, z);
     npc.setYaw(faceToward(x, z, anchor.x, anchor.z));
     group.add(npc.group);
