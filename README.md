@@ -10,7 +10,7 @@ name on an intake list.
 [![🌐 Live](https://img.shields.io/badge/%F0%9F%8C%90%20Live-Play%20now-2563eb?style=flat-square&logo=vercel&logoColor=white)](https://memorythief.vercel.app)
 [![Three.js](https://img.shields.io/badge/Three.js-WebGL-black?style=flat-square&logo=threedotjs&logoColor=white)](https://threejs.org)
 [![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev)
-[![Smoke](https://img.shields.io/badge/Smoke%20checks-367%2F367-brightgreen?style=flat-square)](#-testing)
+[![Smoke](https://img.shields.io/badge/Smoke%20checks-373%2F373-brightgreen?style=flat-square)](#-testing)
 [![Assets](https://img.shields.io/badge/Assets-100%25%20procedural-orange?style=flat-square)](#-art--audio--honesty)
 
 *Every building, texture, prop, landmark and sound is generated at load time —
@@ -91,7 +91,7 @@ Riven Vale is hired to find a missing woman and finds his own name instead.
 - 🎮 **Accessibility & touch** — interface scale, reduce-flicker,
   high-contrast cards (persisted separately from saves), and a minimal
   touch layer on coarse-pointer devices.
-- ✅ **367 automated checks** — one headless smoke suite plays the game
+- ✅ **373 automated checks** — one headless smoke suite plays the game
   end-to-end and fails the build on any regression.
 
 ## 🚀 Quick start
@@ -101,7 +101,9 @@ npm install
 npm run dev        # 👉 http://localhost:6030
 ```
 
-Click the canvas once to capture the mouse; `Esc` releases it.
+When the city is ready, the welcome case file greets you — **BEGIN THE CASE**
+starts the walk (that click also unlocks the sound). Then click the canvas once
+to capture the mouse; `Esc` releases it.
 
 Production build / preview:
 
@@ -691,8 +693,9 @@ actually articulating).
 ## 🗂️ Project layout
 
 ```
-index.html            UI shell: loading screen, HUD, settings panel, prompts,
-                      memory journal, extraction ring, reconstruction overlay
+index.html            UI shell: loading screen, welcome case-file screen, HUD,
+                      settings panel, prompts, memory journal, extraction ring,
+                      reconstruction overlay
 src/
   main.js             bootstrap, mode manager (play/inspect), memory wiring,
                       test hooks
@@ -715,11 +718,12 @@ src/
                       definitions + manager, dialogue definitions + runner,
                       story cast (Tomas Venn)
   audio/              procedural WebAudio cues (no sample files)
-  ui/                 loading screen, HUD, settings panel, prompt/read-out card,
-                      memory journal + case-file tab + extraction channel,
-                      stealth HUD, dialogue card, city map, corner mini-map
-scripts/smoke.mjs     headless screenshot/error/gameplay/memory/city-life/story
-                      smoke test (367 checks, exit code reflects failures)
+  ui/                 loading + welcome screens, HUD, settings panel,
+                      prompt/read-out card, memory journal + case-file tab +
+                      extraction channel, stealth HUD, dialogue card, city map,
+                      corner mini-map
+scripts/smoke.mjs     headless screenshot/error/welcome/gameplay/memory/city-life/story
+                      smoke test (373 checks, exit code reflects failures)
 scripts/probe.mjs     headless runtime probe (stats + lights, no screenshots)
 scripts/probe-story.mjs  focused chapter walkthrough probe (fresh save, both
                       choice paths, PASS/FAIL per step)
@@ -732,15 +736,16 @@ scripts/probe-geo.mjs focused geometry probe (how renderer.info counts
 ## 🧪 Testing
 
 One headless smoke suite (`scripts/smoke.mjs`, headless Edge + Puppeteer)
-starts the dev server, plays the game and asserts **367 checks** in six
+starts the dev server, plays the game and asserts **373 checks** in seven
 groups — the exit code reflects failures, so it gates every change:
 
 | 🔍 Group | Checks | What it proves |
 | --- | --- | --- |
+| 🛈 Welcome | 4 | the case-file screen greets you before play, the movement gate holds behind it, BEGIN starts the case, it never comes back |
 | 🎮 Gameplay | 30 | walking, sprinting, jumping, collision (walls, barriers, camera boom), prompts, read-out cards |
 | 🧠 Memory | 63 | extraction + cooldown/cancel paths, journal, contradictions, reconstruction playback/cancellation, the hidden door, dialogue unlocks, Resonance Sight |
 | 🏙️ City life | 30 | population & archetypes, hide spots, restricted zones, patrol movement, SUSPICIOUS→DETECTED escalation with reasons, investigate→search→return cycle, cover breaking line of sight |
-| 📖 Story | 113 | the Venn case end to end: both dialogue-choice paths, order-independent objectives, the locked cage, the optional side case, case-file journal, reload persistence |
+| 📖 Story | 115 | the Venn case end to end: both dialogue-choice paths, order-independent objectives, the locked cage, the optional side case, case-file journal, reload persistence |
 | 📈 Progression | 88 | HUD tracker, city map & pins, mini-map + `Tab` toggle, extraction noise, upgrade shop, pause/settings/save-load/new-game round-trips |
 | ✅ Quality | 43 | low/medium/high presets, draw-call & GPU-resource leak budgets, same-seed rebuild determinism, volume buses, reduce-FX, fixed-lens camera |
 

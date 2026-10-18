@@ -25,6 +25,7 @@ import { CancelledError, buildWorld } from './world/world.js';
 import { createMaterials, setWet } from './world/materials.js';
 import { createLayout } from './world/layout.js';
 import { hideLoading, setProgress, showLoading, showLoadingError } from './ui/loading.js';
+import { hideWelcome, initWelcome, isWelcomeOpen, showWelcome } from './ui/welcome.js';
 import { initPanel } from './ui/panel.js';
 import { isHudVisible, setHudVisible, toast } from './ui/hud.js';
 import { closeInspect, hidePrompt, isInspectOpen, openInspect, showPrompt } from './ui/prompt.js';
@@ -839,9 +840,10 @@ input.onLockChange = (locked) => {
   }
 };
 
-/** True while any DOM surface owns the screen (Phase 1–6 overlays). */
+/** True while any DOM surface owns the screen (welcome + Phase 1–6 overlays). */
 function anyOverlayOpen() {
   return (
+    isWelcomeOpen() ||
     panel.isOpen() ||
     isInspectOpen() ||
     isJournalOpen() ||
@@ -1633,15 +1635,20 @@ app.onUpdate((dt) => {
 applyModeUi();
 app.start();
 
+// the welcome's BEGIN click is also the gesture that unlocks WebAudio
+initWelcome(() => {
+  unlockAudio();
+  startAmbience();
+  if (mode === 'play') toast('Click to capture the mouse · WASD to move · E to inspect', 4200);
+});
+
 generate()
   .then((ok) => {
     if (ok) {
       hideLoading();
-      // give the first frame a moment, then release the overlay
       window.__MT_READY__ = true;
-      if (mode === 'play') {
-        toast('Click to capture the mouse · WASD to move · E to inspect', 4200);
-      }
+      // the case file greets the player; the walk starts from its button
+      showWelcome();
     }
   })
   .catch((err) => {
@@ -1791,6 +1798,10 @@ window.__MT_MODE__ = () => mode;
 // position that never changes — which is exactly how the door-walk failure
 // disguised itself as a door that was still shut.
 window.__MT_OVERLAY_OPEN__ = () => anyOverlayOpen();
+window.__MT_WELCOME__ = (op) => {
+  if (op === undefined) return isWelcomeOpen();
+  return op ? showWelcome() : hideWelcome();
+};
 window.__MT_PLAYER__ = () => player?.snapshot() ?? null;
 window.__MT_SPAWN__ = (district) => {
   spawnDistrict = district ?? spawnDistrict;

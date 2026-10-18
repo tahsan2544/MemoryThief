@@ -61,6 +61,68 @@ async function shot(page, warnings, file) {
 }
 
 /* --------------------------------------------------------------------- *
+ * Welcome screen — the case file the city greets you with
+ * --------------------------------------------------------------------- */
+
+async function runWelcomeTests(page, errors, warnings) {
+  const results = [];
+  const check = (name, ok, detail = '') => {
+    results.push({ name, ok });
+    const line = `${name}${detail ? ` — ${detail}` : ''}`;
+    if (ok) console.log(`[smoke]   ok   ${line}`);
+    else {
+      errors.push(`welcome: ${line}`);
+      console.log(`[smoke]   FAIL ${line}`);
+    }
+  };
+  const state = () =>
+    page.evaluate(() => (typeof window.__MT_WELCOME__ === 'function' ? window.__MT_WELCOME__() : 'missing'));
+
+  const up = await state();
+  check('welcome screen greets the player before play', up === true, String(up));
+  await shot(page, warnings, '00-welcome.png');
+
+  // while the welcome is up the game's own movement gate must hold
+  const locked = await page.evaluate(() => window.__MT_OVERLAY_OPEN__());
+  check('movement gate holds behind the welcome', locked === true, String(locked));
+
+  // the real button, with a real click
+  await page.click('#welcome-start');
+  const gone = await page
+    .waitForFunction('window.__MT_WELCOME__ && window.__MT_WELCOME__() === false', { timeout: 20000 })
+    .then(() => true)
+    .catch(() => false);
+  check('BEGIN starts the case', gone);
+
+  // and it stays gone once the walk begins
+  await new Promise((r) => setTimeout(r, 1200));
+  const still = await state();
+  check('the welcome does not come back', still === false, String(still));
+
+  const passed = results.filter((r) => r.ok).length;
+  console.log(`[smoke] welcome checks: ${passed}/${results.length} passed`);
+  return results;
+}
+
+/**
+ * Click the welcome's real button and wait for the gate to lift. A page
+ * (re)load always greets the player again — that is the title screen working —
+ * so every fresh load in the suite must dismiss it before driving the game.
+ */
+async function dismissWelcome(page) {
+  await page
+    .waitForFunction('typeof window.__MT_WELCOME__ === "function" && window.__MT_WELCOME__() === true', {
+      timeout: 30000,
+    })
+    .catch(() => {});
+  const up = await page.evaluate(() => (typeof window.__MT_WELCOME__ === 'function' ? window.__MT_WELCOME__() : 'missing'));
+  if (up !== true) return up;
+  await page.click('#welcome-start');
+  await page.waitForFunction('window.__MT_WELCOME__() === false', { timeout: 20000 }).catch(() => {});
+  return page.evaluate(() => window.__MT_WELCOME__());
+}
+
+/* --------------------------------------------------------------------- *
  * Phase 2 — gameplay checks (Riven Vale walking around the city)
  *
  * Headless SwiftShader renders the street view at 1–3 FPS, so nothing here
@@ -1414,6 +1476,11 @@ async function runStoryTests(page, errors, warnings) {
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForFunction('window.__MT_READY__ === true', { timeout: 300000 });
   await sleep(1500);
+  // a fresh load greets the player again — the title screen is deliberate
+  const greetedAgain = await page.evaluate(() => (typeof window.__MT_WELCOME__ === 'function' ? window.__MT_WELCOME__() : 'missing'));
+  check('welcome greets again after a fresh load', greetedAgain === true, String(greetedAgain));
+  const dismissedAgain = await dismissWelcome(page);
+  check('the walk resumes after the welcome', dismissedAgain === false, String(dismissedAgain));
   s = await story();
   check('after reload: main still complete', s.missions?.[0]?.status === 'complete', s.missions?.[0]?.status);
   check('after reload: evidence preserved', (s.evidence || []).length === 9, String((s.evidence || []).length));
@@ -2358,6 +2425,10 @@ async function main() {
 
     const stats = await page.evaluate(() => window.__MT_STATS__());
     console.log('[smoke] stats:', JSON.stringify(stats, null, 2));
+
+    /* ---------------- welcome screen ---------------- */
+    console.log('[smoke] welcome checks…');
+    await runWelcomeTests(page, errors, warnings);
 
     for (const [view, file] of VIEWS) {
       const ok = await page.evaluate((v) => window.__MT_VIEW__(v), view);
