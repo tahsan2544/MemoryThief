@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="data:," />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>MEMORY THIEF — Eidolon City</title>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <!-- ============================ LOADING ============================ -->
+    <div id="loading" class="overlay">
+      <div class="loading-box">
+        <div class="loading-kicker">PALISADE ARCHIVE // WORLD FORGE</div>
+        <h1 class="loading-title">MEMORY THIEF</h1>
+        <div class="loading-sub">EIDOLON CITY — OPEN WORLD INSPECTION BUILD</div>
+        <div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+        <div id="loading-status" class="loading-status">Initialising…</div>
+        <div id="loading-detail" class="loading-detail"></div>
+      </div>
+    </div>
+
+    <!-- ============================== HUD ============================== -->
+    <div id="hud" class="hud">
+      <div class="hud-tl">
+        <div class="hud-title">MEMORY THIEF</div>
+        <div class="hud-mode" id="hud-mode">RIVEN VALE</div>
+        <div class="hud-controls" id="controls-play">
+          <div><b>Click</b> mouse · <b>W A S D</b> move · <b>Shift</b> sprint · <b>Space</b> jump · <b>E</b> interact</div>
+          <div><b>Mouse</b> orbit/zoom · <b>R</b> respawn · <b>N</b> new seed · <b>F5</b> inspection camera</div>
+          <div><b>J</b> journal · <b>C</b> case file · <b>M</b> city map · <b>Tab</b> mini-map · <b>I</b> gear · <b>V</b> resonance sight</div>
+          <div><b>P</b>/<b>Esc</b> pause · <b>H</b> hide HUD · <b>Chip, top centre</b> stealth + why</div>
+        </div>
+        <div class="hud-controls hidden" id="controls-inspect">
+          <div><b>Click</b> capture mouse · <b>W A S D</b> fly · <b>Q / E</b> down / up</div>
+          <div><b>Shift</b> boost · <b>Scroll</b> speed · <b>Esc</b> release mouse</div>
+          <div><b>F5</b> back to Riven Vale · <b>N</b> new seed · <b>P</b> pause · <b>H</b> hide HUD</div>
+        </div>
+
+        <!-- mission tracker (Phase 6) -->
+        <div id="tracker" class="tracker hidden">
+          <div class="tracker-kicker" id="tracker-kicker">ACTIVE</div>
+          <div class="tracker-title" id="tracker-title">—</div>
+          <div class="tracker-objs" id="tracker-objs"></div>
+          <div class="tracker-side" id="tracker-side"></div>
+        </div>
+      </div>
+
+      <div class="hud-bc" id="hud-bar">
+        <span class="chip"><i class="dot dot-blue"></i>Glassline</span>
+        <span class="chip"><i class="dot dot-amber"></i>Old Quarter</span>
+        <span class="chip"><i class="dot dot-teal"></i>Floodworks</span>
+        <span class="chip"><i class="dot dot-green"></i>Verdant Ward</span>
+        <span class="chip"><i class="dot dot-red"></i>Underarchive</span>
+      </div>
+
+      <!-- live mini-map (Tab hides/shows it) -->
+      <div class="hud-minimap" id="minimap">
+        <canvas id="minimap-canvas" width="184" height="184" aria-label="Mini-map"></canvas>
+        <div class="minimap-label" id="minimap-label">—</div>
+      </div>
+    </div>
+
+    <!-- ============================= PANEL ============================= -->
+    <div id="panel" class="panel hidden">
+      <div class="panel-head">
+        <span>WORLD SETTINGS</span>
+        <button id="panel-close" type="button" aria-label="Close">✕</button>
+      </div>
+
+      <label class="field">
+        <span>World seed</span>
+        <span class="row">
+          <input id="set-seed" type="text" spellcheck="false" />
+          <button id="set-random" type="button">Random</button>
+        </span>
+      </label>
+
+      <label class="field">
+        <span>World scale</span>
+        <select id="set-scale">
+          <option value="8">Small — 800 m</option>
+          <option value="12" selected>Medium — 1200 m</option>
+          <option value="16">Large — 1600 m</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Graphics quality</span>
+        <select id="set-quality">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Render scale <b id="out-res">100%</b></span>
+        <input id="set-res" type="range" min="0.5" max="1" step="0.05" value="1" />
+      </label>
+
+      <label class="field">
+        <span>District density <b id="out-density">1.00×</b></span>
+        <input id="set-density" type="range" min="0.5" max="1.6" step="0.05" value="1" />
+      </label>
+
+      <label class="field">
+        <span>Fog distance <b id="out-fog">1150 m</b></span>
+        <input id="set-fog" type="range" min="250" max="1400" step="20" value="1150" />
+      </label>
+
+      <label class="field check">
+        <input id="set-rain" type="checkbox" checked />
+        <span>Acid rain particles</span>
+      </label>
+
+      <label class="field check">
+        <input id="set-shadows" type="checkbox" checked />
+        <span>Directional shadows</span>
+      </label>
+
+      <label class="field check">
+        <input id="set-wet" type="checkbox" checked />
+        <span>Wet street reflections</span>
+      </label>
+
+      <div class="panel-sub">CONTROLS</div>
+
+      <label class="field">
+        <span>Mouse sensitivity <b id="out-sens">1.00×</b></span>
+        <input id="set-sens" type="range" min="0.3" max="2.5" step="0.05" value="1" />
+      </label>
+
+      <label class="field">
+        <span>Camera distance <b id="out-dist">4.6 m</b></span>
+        <input id="set-dist" type="range" min="2.2" max="9" step="0.1" value="4.6" />
+      </label>
+
+      <label class="field check">
+        <input id="set-invert" type="checkbox" />
+        <span>Invert vertical look</span>
+      </label>
+
+      <label class="field check">
+        <input id="set-audio" type="checkbox" checked />
+        <span>Procedural sound cues</span>
+      </label>
+
+      <label class="field">
+        <span>Master volume <b id="out-vol-master">80%</b></span>
+        <input id="set-vol-master" type="range" min="0" max="100" step="5" value="80" />
+      </label>
+
+      <label class="field">
+        <span>Ambience volume <b id="out-vol-ambience">60%</b></span>
+        <input id="set-vol-ambience" type="range" min="0" max="100" step="5" value="60" />
+      </label>
+
+      <label class="field">
+        <span>Effects volume <b id="out-vol-effects">80%</b></span>
+        <input id="set-vol-effects" type="range" min="0" max="100" step="5" value="80" />
+      </label>
+
+      <div class="panel-sub">ACCESSIBILITY</div>
+
+      <label class="field">
+        <span>Interface scale</span>
+        <select id="set-uiscale">
+          <option value="1" selected>100%</option>
+          <option value="1.15">115%</option>
+          <option value="1.3">130%</option>
+        </select>
+      </label>
+
+      <label class="field check">
+        <input id="set-flicker" type="checkbox" />
+        <span>Reduce flicker &amp; flash</span>
+      </label>
+
+      <label class="field check">
+        <input id="set-reducefx" type="checkbox" />
+        <span>Reduce visual effects</span>
+      </label>
+
+      <label class="field check">
+        <input id="set-contrast" type="checkbox" />
+        <span>High-contrast prompts &amp; cards</span>
+      </label>
+
+      <div class="panel-actions">
+        <button id="set-apply" type="button" class="primary">Rebuild World</button>
+        <button id="set-defaults" type="button">Defaults</button>
+      </div>
+
+      <div class="panel-note">
+        World generation is deterministic: the same seed always produces the same city.
+      </div>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+
+    <!-- ======================= GAMEPLAY OVERLAYS ======================= -->
+    <div id="crosshair" class="crosshair" aria-hidden="true"></div>
+
+    <!-- ========================= STEALTH READ-OUT ======================== -->
+    <div id="stealth" class="stealth" data-state="hidden">
+      <div class="stealth-row">
+        <span class="stealth-dot"></span>
+        <span class="stealth-label" id="stealth-label">HIDDEN</span>
+      </div>
+      <div class="stealth-bar"><div class="stealth-fill" id="stealth-fill"></div></div>
+      <div class="stealth-reason" id="stealth-reason">No one is watching</div>
+    </div>
+
+    <div id="prompt" class="prompt hidden">
+      <kbd>E</kbd>
+      <span id="prompt-label">Inspect</span>
+    </div>
+
+    <div id="inspect" class="inspect hidden" role="dialog" aria-modal="false">
+      <div class="inspect-kicker" id="inspect-kicker">INSPECT</div>
+      <div class="inspect-title" id="inspect-title"></div>
+      <div class="inspect-body" id="inspect-body"></div>
+      <div class="inspect-hint"><kbd>E</kbd> or <kbd>Esc</kbd> close</div>
+    </div>
+
+    <!-- ========================== DIALOGUE (PHASE 5) ======================= -->
+    <div id="dialogue" class="dialogue hidden" role="dialog" aria-modal="false">
+      <div class="dialogue-kicker" id="dialogue-kicker">CONVERSATION</div>
+      <div class="dialogue-title" id="dialogue-title"></div>
+      <div class="dialogue-body" id="dialogue-body"></div>
+      <div class="dialogue-choices" id="dialogue-choices"></div>
+      <div class="dialogue-hint" id="dialogue-hint"><kbd>E</kbd> or <kbd>Esc</kbd> close</div>
+    </div>
+
+    <!-- ========================= MEMORY JOURNAL ========================= -->
+    <div id="journal" class="journal hidden" role="dialog" aria-modal="false">
+      <div class="journal-head">
+        <div>
+          <div class="journal-kicker">GLOVE ARCHIVE</div>
+          <div class="journal-title">MEMORY JOURNAL</div>
+        </div>
+        <div class="journal-tabs" role="tablist">
+          <button id="tab-fragments" class="journal-tab selected" type="button">FRAGMENTS</button>
+          <button id="tab-case" class="journal-tab" type="button">CASE FILE</button>
+        </div>
+        <span id="journal-count" class="journal-count">0 / 6</span>
+        <button id="journal-close" type="button" aria-label="Close journal">✕</button>
+      </div>
+      <div class="journal-cols">
+        <div id="journal-list" class="journal-list"></div>
+        <div id="journal-detail" class="journal-detail"></div>
+      </div>
+      <div class="journal-hint">
+        <kbd>M</kbd> close · <kbd>C</kbd> case file · <kbd>↑ ↓</kbd> select · <kbd>Enter</kbd> reconstruct here ·
+        <kbd>1</kbd><kbd>2</kbd> weigh contradiction
+      </div>
+    </div>
+
+    <!-- ====================== EXTRACTION CHANNEL ======================== -->
+    <div id="extract" class="extract hidden">
+      <div class="extract-ring"><div class="extract-fill" id="extract-fill"></div></div>
+      <div class="extract-label" id="extract-label">READING…</div>
+      <div class="extract-hint">MOVE OR <kbd>ESC</kbd> TO CANCEL</div>
+    </div>
+
+    <!-- ========================== CITY MAP (PHASE 6) ===================== -->
+    <div id="map" class="map hidden" role="dialog" aria-modal="true" aria-label="City map">
+      <div class="map-frame">
+        <div class="map-head">
+          <div>
+            <div class="map-kicker">EIDOLON CITY // NAVIGATION</div>
+            <div class="map-title">CITY MAP</div>
+          </div>
+          <div class="map-counts" id="map-counts"></div>
+          <button id="map-close" type="button" aria-label="Close map">✕</button>
+        </div>
+        <div class="map-body">
+          <div class="map-canvas-wrap">
+            <canvas id="map-canvas" width="900" height="600"></canvas>
+            <div id="map-tip" class="map-tip hidden"></div>
+          </div>
+          <aside id="map-detail" class="map-detail"></aside>
+        </div>
+        <div class="map-hint">
+          <kbd>Tab</kbd> or <kbd>Esc</kbd> close · hover pins · click to inspect · walk close to chart landmarks
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== EQUIPMENT & INVENTORY (PHASE 6) ============== -->
+    <div id="gear" class="gear hidden" role="dialog" aria-modal="true" aria-label="Equipment and inventory">
+      <div class="gear-frame">
+        <div class="gear-head">
+          <div>
+            <div class="gear-kicker">LOADOUT // MEMORY GLOVE</div>
+            <div class="gear-title">EQUIPMENT</div>
+          </div>
+          <div class="gear-motes" id="gear-motes"></div>
+          <button id="gear-close" type="button" aria-label="Close equipment">✕</button>
+        </div>
+        <div class="gear-how" id="gear-how"></div>
+        <div class="gear-cols">
+          <section class="gear-col">
+            <div class="gear-col-title">THE GLOVE</div>
+            <div id="gear-glove" class="gear-glove"></div>
+          </section>
+          <section class="gear-col gear-col-wide">
+            <div class="gear-col-title">UPGRADES</div>
+            <div id="gear-upgrades" class="gear-upgrades"></div>
+          </section>
+          <section class="gear-col">
+            <div class="gear-col-title">CARRIED</div>
+            <div id="gear-carried" class="gear-carried"></div>
+          </section>
+        </div>
+        <div class="gear-hint"><kbd>I</kbd> or <kbd>Esc</kbd> close</div>
+      </div>
+    </div>
+
+    <!-- =========================== PAUSE MENU (PHASE 6) ================== -->
+    <div id="pause" class="pause hidden" role="dialog" aria-modal="true" aria-label="Pause menu">
+      <div class="pause-card">
+        <div class="pause-kicker">EIDOLON CITY // SUSPENDED</div>
+        <div class="pause-title">PAUSED</div>
+        <div class="pause-status" id="pause-status"></div>
+
+        <nav class="pause-nav">
+          <button id="pause-resume" type="button" class="primary">Resume</button>
+          <button id="pause-save" type="button">Save game</button>
+          <button id="pause-load" type="button">Load game</button>
+          <button id="pause-settings" type="button">Settings</button>
+          <button id="pause-new" type="button" class="danger">New game…</button>
+        </nav>
+
+        <div id="pause-confirm" class="pause-confirm hidden">
+          <div class="pause-confirm-msg" id="pause-confirm-msg"></div>
+          <div class="pause-confirm-actions">
+            <button id="pause-confirm-cancel" type="button">Keep playing</button>
+            <button id="pause-confirm-accept" type="button" class="danger">Erase &amp; restart</button>
+          </div>
+        </div>
+
+        <div class="pause-hint">
+          <kbd>M</kbd> map · <kbd>I</kbd> gear · <kbd>J</kbd> journal · <kbd>C</kbd> case file ·
+          <kbd>P</kbd>/<kbd>Esc</kbd> resume
+        </div>
+      </div>
+    </div>
+
+    <!-- reconstruction tint overlay (driven by reconstruction.js) -->
+    <div id="recon-tint" class="recon-tint" aria-hidden="true"></div>
+
+    <div class="vignette"></div>
+    <div class="grain"></div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
