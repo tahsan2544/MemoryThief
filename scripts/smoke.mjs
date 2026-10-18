@@ -1812,6 +1812,23 @@ async function runPhase7Tests(page, errors, warnings) {
     `textures ${geoA.textures} → ${geoB.textures}`);
   await ev(() => window.__MT_SET_MODE__('play')); // leave the suite in play mode
 
+  /* ---- 8. software-GL fallback (deliberately last: it leaves the renderer
+   * on Low, so nothing after it may assume a preset — and on a real-GPU host
+   * it asserts the opposite: no fallback fired) ------------------------- */
+  const glReport = await ev(() => window.__MT_SOFTWARE_GL__.report());
+  check('software-GL probe reports the boot renderer honestly',
+    !!glReport && typeof glReport.detected === 'boolean' && glReport.applied === false,
+    `detected=${glReport?.detected} applied=${glReport?.applied} renderer="${glReport?.renderer}"`);
+  const glApply = await ev(() => window.__MT_SOFTWARE_GL__.apply());
+  const glOk = glReport?.detected
+    ? glApply?.quality === 'low' && glApply?.pixelRatio <= 0.5 && glApply?.report?.applied === true
+    : glApply?.quality === 'medium' && glApply?.report?.applied === false;
+  check('software GL auto-degrades to Low at half scale (real GPUs untouched)',
+    glOk,
+    glReport?.detected
+      ? `quality=${glApply?.quality} pixelRatio=${glApply?.pixelRatio} (software rasteriser: fallback applied)`
+      : `quality=${glApply?.quality} pixelRatio=${glApply?.pixelRatio} (hardware GPU: fallback declined)`);
+
   const passed = results.filter((r) => r.ok).length;
   console.log(`[smoke] quality checks: ${passed}/${results.length} passed`);
   if (passed !== results.length) warnings.push(`${results.length - passed} quality check(s) failed`);

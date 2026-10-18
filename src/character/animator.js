@@ -133,7 +133,9 @@ export class CharacterAnimator {
     const legAmp = 0.5 + 0.34 * runK;
     const armAmp = 0.42 + 0.3 * runK;
 
-    const t = {};
+    // reused across frames — every key below is written before applyPose, so
+    // the object never carries a stale value (and never churns the GC)
+    const t = this._targets || (this._targets = {});
     // legs: thigh stride, overridden by the airborne pose
     t.legL = swing * legAmp + airT * (vy > 0 ? 0.45 : -0.28);
     t.legR = -swing * legAmp + airT * (vy > 0 ? 0.2 : -0.5);

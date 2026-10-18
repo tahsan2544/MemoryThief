@@ -7,7 +7,9 @@ import { PALETTE } from './config/palette.js';
 import {
   DEFAULTS,
   applyQuality,
+  applySoftwareFallback,
   applyUrlOverrides,
+  bootReport,
   derived,
   setQuality,
   settings,
@@ -119,6 +121,9 @@ import { createTouchControls } from './ui/touchControls.js';
 
 applyUrlOverrides();
 applyQuality();
+// Software GL (no usable GPU) starts on Low at half internal resolution —
+// unless the URL pinned a preset, which is what tests and screenshots use.
+applySoftwareFallback();
 
 const container = document.getElementById('app');
 const app = new App(container, settings, derived).init();
@@ -1364,6 +1369,7 @@ window.__MT_STATS__ = () => ({
   materials: Object.keys(materials).length,
   /* Phase 7 — graphics-preset cost evidence + health metrics */
   quality: settings.quality,
+  softwareGL: bootReport.software, // { detected, renderer, applied } once probed at boot
   pixelRatio: app.renderer.getPixelRatio(),
   shadow: {
     enabled: app.renderer.shadowMap.enabled,
@@ -1422,6 +1428,25 @@ window.__MT_RES__ = (scale) => {
   settings.renderScale = Number.isFinite(v) ? Math.min(1, Math.max(0.5, v)) : 1;
   app.resize();
   return { scale: settings.renderScale, pixelRatio: app.renderer.getPixelRatio() };
+};
+
+/**
+ * Software-GL fallback hook (see settings.applySoftwareFallback). `report` is
+ * the boot-time probe; `apply` runs the exact degradation boot itself runs
+ * (force skips the URL pin so the applied branch is reachable from a pinned
+ * test page) and reports the renderer state that came out of it.
+ */
+window.__MT_SOFTWARE_GL__ = {
+  report: () => ({ ...(bootReport.software ?? { detected: false, renderer: '', applied: false }) }),
+  apply: async () => {
+    const report = applySoftwareFallback({ force: true });
+    app.applyRendererQuality();
+    app.requestShadowUpdate();
+    app.resize();
+    motes.setCount(derived.quality.moteCount ?? 0);
+    await new Promise((r) => setTimeout(r, 120)); // let a frame or two land
+    return { report, quality: settings.quality, pixelRatio: app.renderer.getPixelRatio() };
+  },
 };
 
 /* Phase 7 — audio / particles / touch state for the smoke suite ---------- */

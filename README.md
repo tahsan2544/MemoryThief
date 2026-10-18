@@ -10,7 +10,7 @@ changes the street when you play them back.
 [![🌐 Live](https://img.shields.io/badge/%F0%9F%8C%90%20Live-Play%20now-2563eb?style=flat-square&logo=vercel&logoColor=white)](https://memorythief.vercel.app)
 [![Three.js](https://img.shields.io/badge/Three.js-WebGL-black?style=flat-square&logo=threedotjs&logoColor=white)](https://threejs.org)
 [![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev)
-[![Smoke](https://img.shields.io/badge/Smoke%20checks-242%2F242-brightgreen?style=flat-square)](#-testing)
+[![Smoke](https://img.shields.io/badge/Smoke%20checks-244%2F244-brightgreen?style=flat-square)](#-testing)
 [![Assets](https://img.shields.io/badge/Assets-100%25%20procedural-orange?style=flat-square)](#-art--audio--honesty)
 
 *Every building, texture, prop, landmark and sound is generated at load time —
@@ -87,7 +87,7 @@ people and places — are yours to recover, weigh and replay.
 - 🎮 **Accessibility & touch** — interface scale, reduce-flicker,
   high-contrast cards (persisted separately from saves), and a minimal
   touch layer on coarse-pointer devices.
-- ✅ **242 automated checks** — one headless smoke suite plays the game
+- ✅ **244 automated checks** — one headless smoke suite plays the game
   end-to-end and fails the build on any regression.
 
 ## 🚀 Quick start
@@ -336,7 +336,7 @@ routes it through three buses so the settings panel can mix the game:
   the game runs fully without audio (headless tests prove it).
 
 **Performance.** Profiling (`scripts/probe-perf.mjs`, measured on
-SwiftShader) drove three changes, all verifiable through the smoke suite:
+SwiftShader) drove four changes, all verifiable through the smoke suite:
 
 - 🕐 **Shadow-map cadence** — the depth pass no longer re-renders every
   frame; `shadowMap.autoUpdate` is off and the map refreshes on a fixed
@@ -350,6 +350,14 @@ SwiftShader) drove three changes, all verifiable through the smoke suite:
   lighting cost.
 - 🖥️ **Resize re-caps the device pixel ratio** (dragging to a HiDPI monitor
   no longer doubles fill-rate silently).
+- 🪞 **Software-GL auto-degrade** — the boot path reads the unmasked renderer
+  string once; SwiftShader / llvmpipe / Microsoft Basic Render (no usable
+  GPU — this project's own probes measure it below one frame per second at
+  Medium) starts on **Low at 50% internal resolution** instead of a
+  slideshow. Explicit `?quality=` / `?rs=` pins still win, so tests and
+  screenshots measure exactly what they ask for, and `stats.softwareGL`
+  reports the probe (`{ detected, renderer, applied }`) so a degraded start
+  is visible rather than silent. In-game, Settings → Graphics overrides it.
 
 Measured preset scaling (same seed, same street view, peak per-frame cost
 including the shadow pass, plus the sustained rate over three 15 s windows of
@@ -673,7 +681,7 @@ src/
                       channel, stealth HUD, city map,
                       corner mini-map
 scripts/smoke.mjs     headless screenshot/error/welcome/gameplay/memory/city-life
-                      smoke test (242 checks, exit code reflects failures)
+                      smoke test (244 checks, exit code reflects failures)
 scripts/probe.mjs     headless runtime probe (stats + lights, no screenshots)
 scripts/probe-ui.mjs  focused UI probe (mini-map, map/journal keys, camera
                       ground clamp, articulated gait)
@@ -690,7 +698,7 @@ scripts/probe-buildings.mjs visual probe — every inspect fly-camera view plus
 ## 🧪 Testing
 
 One headless smoke suite (`scripts/smoke.mjs`, headless Edge + Puppeteer)
-starts the dev server, plays the game and asserts **242 checks** in six
+starts the dev server, plays the game and asserts **244 checks** in six
 groups — the exit code reflects failures, so it gates every change:
 
 | 🔍 Group | Checks | What it proves |
@@ -700,7 +708,7 @@ groups — the exit code reflects failures, so it gates every change:
 | 🧠 Memory | 59 | extraction + cooldown/cancel paths, journal, contradictions, reconstruction playback/cancellation, the hidden door, replay gating, Resonance Sight |
 | 🏙️ City life | 26 | population & archetypes, hide spots, restricted zones, patrol movement, SUSPICIOUS→DETECTED escalation with reasons, investigate→search→return cycle, cover breaking line of sight |
 | 📈 Progression | 80 | city map & pins, mini-map + `Tab` toggle, extraction noise, upgrade shop, pause/settings/save-load/new-game round-trips |
-| ✅ Quality | 43 | low/medium/high presets, draw-call & GPU-resource leak budgets, same-seed rebuild determinism, volume buses, reduce-FX, fixed-lens camera |
+| ✅ Quality | 45 | low/medium/high presets, draw-call & GPU-resource leak budgets, same-seed rebuild determinism, volume buses, reduce-FX, fixed-lens camera, software-GL detection + auto-degrade |
 
 ```bash
 npm run smoke        # ~10 min under software GL; writes smoke/ screenshots

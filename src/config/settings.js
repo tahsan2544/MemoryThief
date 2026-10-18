@@ -119,6 +119,11 @@ function parseBool(v, fallback) {
   return !['0', 'false', 'no', 'off'].includes(String(v).toLowerCase());
 }
 
+/** URL overrides that pinned a value. The software-GL fallback (below) steps
+ * aside when the caller — tests, screenshots, power users — decided
+ * explicitly, so every automated run measures exactly what it asks for. */
+const urlPinned = { quality: false, renderScale: false };
+
 /** Read overrides from the URL so builds/screenshots can be parameterised. */
 export function applyUrlOverrides(search = window.location.search) {
   const q = new URLSearchParams(search);
@@ -129,6 +134,7 @@ export function applyUrlOverrides(search = window.location.search) {
   }
   if (q.has('quality') && QUALITY_PRESETS[q.get('quality')]) {
     settings.quality = q.get('quality');
+    urlPinned.quality = true;
   }
   if (q.has('density')) {
     const d = parseFloat(q.get('density'));
@@ -143,7 +149,10 @@ export function applyUrlOverrides(search = window.location.search) {
   if (q.has('wet')) settings.wet = parseBool(q.get('wet'), settings.wet);
   if (q.has('rs')) {
     const r = parseFloat(q.get('rs'));
-    if (!Number.isNaN(r)) settings.renderScale = Math.min(1, Math.max(0.5, r));
+    if (!Number.isNaN(r)) {
+      settings.renderScale = Math.min(1, Math.max(0.5, r));
+      urlPinned.renderScale = true;
+    }
   }
   if (q.has('sens')) {
     const s = parseFloat(q.get('sens'));
@@ -172,4 +181,61 @@ export function applyQuality() {
 export function setQuality(quality) {
   if (QUALITY_PRESETS[quality]) settings.quality = quality;
   return applyQuality();
+}
+
+/* --------------------------------------------------------------------- *
+ * Software-GL fallback — performance honesty
+ *
+ * A machine whose GPU is missing, blocklisted or unclaimed renders through
+ * SwiftShader / llvmpipe / Microsoft Basic Render. This project's own
+ * probes measure that at well under one frame per second at Medium, so the
+ * boot path reads the unmasked renderer string once and — unless the URL
+ * pinned a preset — starts on Low at half internal resolution instead of
+ * quietly handing the player a slideshow. The probe result (including
+ * whether the fallback acted) is exposed through `bootReport.software`
+ * and the game's stats hook, so the degraded start is visible, not silent.
+ * --------------------------------------------------------------------- */
+
+export const bootReport = { software: null };
+
+const SOFTWARE_RENDERER_RE =
+  /swiftshader|llvmpipe|softwarerenderer|software rasterizer|basic render|microsoft basic/i;
+
+/** One-shot WebGL probe: does this machine rasterise in software? */
+export function detectSoftwareRenderer() {
+  try {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+    if (!gl) return { detected: false, renderer: '', applied: false, reason: 'no webgl context' };
+    let renderer = '';
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    if (dbg) renderer = String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) ?? '');
+    if (!renderer) renderer = String(gl.getParameter(gl.RENDERER) ?? '');
+    // release the throwaway context immediately — browsers allow few of them
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return { detected: SOFTWARE_RENDERER_RE.test(renderer), renderer, applied: false };
+  } catch (err) {
+    return { detected: false, renderer: '', applied: false, reason: String(err?.message ?? err) };
+  }
+}
+
+/**
+ * Boot-time degradation when GL rasterises in software. Idempotent; explicit
+ * URL pins win unless `force` (the test hook) asks for the applied branch.
+ * Callers that switch quality afterwards must re-apply the renderer side
+ * (the game's preset-switch path already does).
+ */
+export function applySoftwareFallback({ force = false } = {}) {
+  const report = bootReport.software ?? (bootReport.software = detectSoftwareRenderer());
+  if (report.applied || !report.detected) return report;
+  if (!force && (urlPinned.quality || urlPinned.renderScale)) return report;
+  settings.quality = 'low';
+  settings.renderScale = Math.min(settings.renderScale, 0.5);
+  applyQuality();
+  report.applied = true;
+  console.warn(
+    `[memory-thief] software GL detected (${report.renderer || 'unknown renderer'}) — ` +
+      'starting on Low at 50% internal resolution. Settings → Graphics overrides this.',
+  );
+  return report;
 }
