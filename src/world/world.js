@@ -5,7 +5,6 @@ import { Colliders } from '../player/collision.js';
 import { createInteractables } from '../interaction/interactables.js';
 import { buildMemorySites } from './memorySites.js';
 import { buildCityLife } from './cityLife.js';
-import { buildStoryCast } from '../story/storyCast.js';
 import { MeshBuilder, rgb } from '../utils/geo.js';
 import { generateCellBuildings } from './buildings.js';
 import { buildDetails } from './details.js';
@@ -274,15 +273,6 @@ export async function buildWorld({
   });
 
   /* ================================================================ *
-   * 5e. story cast (Phase 5) — the commissioner and objective markers
-   * ================================================================ */
-  await step(0.858, 'Taking the case', 'Tomas Venn · objective markers');
-
-  // Probes the market pavement for a clear standing spot (same occupancy
-  // rules the props use) so the commission figure is never inside a lamppost.
-  const storyCast = buildStoryCast({ layout, colliders, interactables, root });
-
-  /* ================================================================ *
    * 6. compile
    * ================================================================ */
   await step(0.86, 'Compiling meshes', 'merging geometry into chunk buckets');
@@ -417,7 +407,6 @@ export async function buildWorld({
     interactables,
     memorySites,
     cityLife,
-    storyCast,
     chunks: chunkGroups.map((g, i) => ({ ...layout.chunks[i], group: g })),
     stats: {
       meshes: meshCount,
@@ -427,14 +416,12 @@ export async function buildWorld({
       landmarks: layout.landmarks.length,
       agents: cityLife.agents.length,
       hideSpots: cityLife.hideSpots.length,
-      storyTargets: storyCast.targets.length,
     },
     spawnHint: layout.overview,
     seedRoll: rng.next(),
     dispose() {
       cityLife?.dispose();
       memorySites?.dispose();
-      storyCast?.dispose();
       for (const g of disposables) g.dispose();
       root.traverse((o) => {
         if (o.isInstancedMesh) {

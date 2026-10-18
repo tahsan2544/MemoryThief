@@ -7,7 +7,7 @@
  * behaves exactly as it did in Phases 1–5.
  *
  * Economy — "resonance motes" are not farmed, they are *derived* from what
- * the player has already done (reconstructing memories, filing evidence).
+ * the player has already done (reconstructing memories).
  * Earnings are a pure function of game state, so the total is idempotent:
  * loading an old save can never double-pay, and progress made before this
  * system existed counts retroactively.
@@ -64,10 +64,11 @@ export const UPGRADE_BY_ID = Object.fromEntries(UPGRADES.map((u) => [u.id, u]));
 
 /**
  * Lifetime earnings from game state (pure).
- * 3 motes per reconstructed memory, 1 per filed evidence entry.
+ * 4 motes per reconstructed memory (6 fragments → 24 total; the shop's
+ * full price list is 20, so every upgrade stays reachable by playing).
  */
-export function motesEarned({ reconstructed = 0, evidence = 0 } = {}) {
-  return Math.max(0, reconstructed | 0) * 3 + Math.max(0, evidence | 0);
+export function motesEarned({ reconstructed = 0 } = {}) {
+  return Math.max(0, reconstructed | 0) * 4;
 }
 
 /** The player's progression: which upgrades are owned, what they cost. */
@@ -92,7 +93,7 @@ export class Progression {
   }
 
   /**
-   * @param {{reconstructed?:number, evidence?:number}} ctx lifetime earnings
+   * @param {{reconstructed?:number}} ctx lifetime earnings
    * @returns {{earned:number, spent:number, available:number}}
    */
   motes(ctx = {}) {

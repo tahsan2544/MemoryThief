@@ -2,11 +2,11 @@
  * SaveManager — the Phase 6 checkpoint document.
  *
  * One key (`mt.save.v1`) holds a *point-in-time snapshot* of every progress
- * system: memories, story, discovery, upgrades, player position and the
+ * system: memories, discovery, upgrades, player position and the
  * world seed. The live systems keep persisting to their own keys as before
- * (Phases 3–5 behaviour is untouched); Save writes the checkpoint, Load
- * rolls everything back to it, New Game erases it — always with the player's
- * deliberate confirmation handled by the pause menu.
+ * (the memory mechanic's behaviour is untouched); Save writes the checkpoint,
+ * Load rolls everything back to it, New Game erases it — always with the
+ * player's deliberate confirmation handled by the pause menu.
  *
  * Safety rules:
  *   - missing file   → status 'missing' (start fresh, no error)
@@ -25,7 +25,9 @@ import { UPGRADE_BY_ID } from './upgrades.js';
 export const SAVE_KEY = 'mt.save.v1';
 export const SAVE_VERSION = 1;
 
-/** Every localStorage key a "new game" clears (accessibility prefs survive). */
+/** Every localStorage key a "new game" clears (accessibility prefs survive).
+ * 'mt.story.v1' is a legacy key from the removed story layer — still cleared
+ * so old installs reset to a truly fresh profile. */
 export const PROGRESS_KEYS = [SAVE_KEY, 'mt.memories.v1', 'mt.story.v1', 'mt.progress.v1', 'mt.discovery.v1'];
 
 const MAX_STR = 512;
@@ -64,16 +66,6 @@ export function validateDoc(raw) {
     if (FRAGMENT_BY_ID[believed]) deductions[str(pair)] = believed;
   }
 
-  // ---- story -------------------------------------------------------------
-  const st = raw.story && typeof raw.story === 'object' ? raw.story : {};
-  const flags = list(st.flags);
-  const evidence = [];
-  for (const e of Array.isArray(st.evidence) ? st.evidence.slice(0, MAX_LIST) : []) {
-    if (e && typeof e === 'object' && typeof e.id === 'string') {
-      evidence.push({ id: e.id, title: str(e.title, e.id), body: str(e.body), tag: str(e.tag, 'case') });
-    } else issues.push('bad evidence entry');
-  }
-
   // ---- discovery + progression ------------------------------------------
   const disc = raw.discovery && typeof raw.discovery === 'object' ? raw.discovery : {};
   const prog = raw.progression && typeof raw.progression === 'object' ? raw.progression : {};
@@ -99,7 +91,6 @@ export function validateDoc(raw) {
       abilityUnlocked: !!mem.abilityUnlocked,
       abilitySource: mem.abilitySource ? str(mem.abilitySource) : null,
     },
-    story: { flags, evidence },
     discovery: { districts: list(disc.districts), landmarks: list(disc.landmarks) },
     progression: { spent },
   };
@@ -133,14 +124,13 @@ export function readSave() {
 }
 
 /** Build a validated checkpoint document from live system snapshots. */
-export function buildSnapshot({ seed, player, memories, story, discovery, progression, savedAt = Date.now() }) {
+export function buildSnapshot({ seed, player, memories, discovery, progression, savedAt = Date.now() }) {
   const v = validateDoc({
     v: SAVE_VERSION,
     savedAt,
     seed,
     player,
     memories,
-    story,
     discovery,
     progression,
   });

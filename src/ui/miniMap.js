@@ -5,7 +5,7 @@
  * A small north-up canvas showing the streets and blocks AROUND YOU: district
  * blocks tinted by identity, the Floodworks canal and its bridges, landmark
  * pins (discovered ones named nearby, unknown ones faint), memory readings
- * you hold and active case markers. You are the chevron in the middle with a
+ * you hold and landmarks. You are the chevron in the middle with a
  * facing cone.
  *
  * It deliberately does NOT show people: guards and patrols stay off the
@@ -120,18 +120,6 @@ function draw() {
     ctx.stroke();
     ctx.fillStyle = 'rgba(154, 123, 255, 0.35)';
     ctx.fill();
-  }
-
-  // case markers (amber diamonds)
-  for (const m of data.markers ?? []) {
-    const mx = sx(m.x);
-    const my = sz(m.z);
-    ctx.save();
-    ctx.translate(mx, my);
-    ctx.rotate(Math.PI / 4);
-    ctx.fillStyle = 'rgba(255, 166, 64, 0.95)';
-    ctx.fillRect(-3.5, -3.5, 7, 7);
-    ctx.restore();
   }
 
   // landmark pins: discovered = amber, unknown = faint "?"

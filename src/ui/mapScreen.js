@@ -4,7 +4,7 @@
  * A full-screen canvas rendering of the *generated* layout: district blocks
  * tinted by identity, the Floodworks canal with its bridges, landmark pins
  * (discovered ones named, unknown ones shown as faint "?"), the memory
- * readings you hold, active case markers and your own position with heading.
+ * readings you hold and your own position with heading.
  *
  * Interaction: hover pins to highlight, click a pin to open its read-out in
  * the side panel, click empty space to deselect. Tab / Esc / M close it.
@@ -141,19 +141,6 @@ function draw() {
     pins.push({ id: `src:${s.id}`, kind: 'source', label: s.name, x: px, y: py, detail: s });
   }
 
-  // case markers (amber diamonds)
-  for (const m of data.markers ?? []) {
-    const px = sx(m.x);
-    const py = sz(m.z);
-    ctx.save();
-    ctx.translate(px, py);
-    ctx.rotate(Math.PI / 4);
-    ctx.fillStyle = 'rgba(255, 166, 64, 0.95)';
-    ctx.fillRect(-5, -5, 10, 10);
-    ctx.restore();
-    pins.push({ id: `mk:${m.id}`, kind: 'marker', label: m.label || 'Case objective', x: px, y: py, detail: m });
-  }
-
   // landmark pins: discovered = named amber, unknown = faint "?"
   for (const lm of landmarks ?? []) {
     const px = sx(lm.x);
@@ -272,7 +259,6 @@ function renderDetail() {
       '<li><i class="lg lg-landmark"></i>Landmark — discovered</li>' +
       '<li><i class="lg lg-unknown"></i>Landmark — not visited yet</li>' +
       '<li><i class="lg lg-reading"></i>Memory reading held</li>' +
-      '<li><i class="lg lg-case"></i>Case objective</li>' +
       '</ul>' +
       '<p class="map-note">Walk close to a landmark to put its name on the map.</p>';
     return;
@@ -282,16 +268,11 @@ function renderDetail() {
       '<div class="map-detail-kicker">LANDMARK</div>' +
       `<div class="map-detail-title">${p.known ? p.label : 'UNKNOWN'}</div>` +
       `<p class="map-detail-body">${p.known ? (LANDMARK_BLURB[p.detail.type] ?? '') : 'You have not been close enough to chart this pin.'}</p>`;
-  } else if (p.kind === 'source') {
+  } else {
     box.innerHTML =
       '<div class="map-detail-kicker">MEMORY READING</div>' +
       `<div class="map-detail-title">${p.label}</div>` +
       '<p class="map-detail-body">Recorded in your glove. Return to the site to replay it.</p>';
-  } else {
-    box.innerHTML =
-      '<div class="map-detail-kicker">CASE OBJECTIVE</div>' +
-      `<div class="map-detail-title">${p.label}</div>` +
-      '<p class="map-detail-body">An active lead on the Venn case. The amber marker also shows on the street.</p>';
   }
 }
 

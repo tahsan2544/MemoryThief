@@ -4,13 +4,13 @@
 
 **A procedural open-world memory-noir mystery — built entirely in code.**
 
-One rain-soaked city. Six unreliable memories. A case that ends with your own
-name on an intake list.
+One rain-soaked city. Six unreliable memories. A glove that steals them — and
+changes the street when you play them back.
 
 [![🌐 Live](https://img.shields.io/badge/%F0%9F%8C%90%20Live-Play%20now-2563eb?style=flat-square&logo=vercel&logoColor=white)](https://memorythief.vercel.app)
 [![Three.js](https://img.shields.io/badge/Three.js-WebGL-black?style=flat-square&logo=threedotjs&logoColor=white)](https://threejs.org)
 [![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev)
-[![Smoke](https://img.shields.io/badge/Smoke%20checks-373%2F373-brightgreen?style=flat-square)](#-testing)
+[![Smoke](https://img.shields.io/badge/Smoke%20checks-242%2F242-brightgreen?style=flat-square)](#-testing)
 [![Assets](https://img.shields.io/badge/Assets-100%25%20procedural-orange?style=flat-square)](#-art--audio--honesty)
 
 *Every building, texture, prop, landmark and sound is generated at load time —
@@ -28,7 +28,6 @@ no downloaded assets, no paid services, no external APIs.*
 - [🎯 Controls](#-controls)
 - [🧠 The memory glove](#-the-memory-glove)
 - [🏙️ Living city & stealth](#-living-city--stealth)
-- [📁 The case file](#-the-case-file)
 - [🧭 HUD, map & progression](#-hud-map--progression)
 - [🎨 Visuals, audio & performance](#-visuals-audio--performance)
 - [🪄 World realism & animation](#-world-realism--animation)
@@ -46,17 +45,14 @@ no downloaded assets, no paid services, no external APIs.*
 ## 🎮 About
 
 **MEMORY THIEF** is a procedural, single-world open city built with
-**Three.js + Vite**. It is one game, one world, one continuous case — not a
-collection of demos.
+**Three.js + Vite**. It is one game, one world, not a collection of demos.
 
 You play **Riven Vale**, a third-person character walking a living city of
 patrolling agents behind a readable stealth system, wearing a
 memory-extraction glove. The journal it feeds *weighs* what it recorded, and
 the reconstructions you trigger **change the world** when they finish: a door
-unbars, a marker burns, a person will finally talk.
-
-The game ships its complete opening chapter — **THE VENN CASE** — in which
-Riven Vale is hired to find a missing woman and finds his own name instead.
+unbars, a marker burns. Six unreliable memories — city echoes recorded on
+people and places — are yours to recover, weigh and replay.
 
 ## ✨ Features
 
@@ -75,14 +71,14 @@ Riven Vale is hired to find a missing woman and finds his own name instead.
 - 🕶️ **Readable stealth** — HIDDEN / SUSPICIOUS / DETECTED / SEARCHING, always
   with a plain-language reason; cover, restricted zones, guard alerts and
   disturbances that respect line of sight.
-- 📖 **A complete playable case** — the Venn case from commission to finale:
-  two branching choices, three order-independent findings, a locked records
-  cage, an optional side case, and a case-file journal that keeps up.
+- 🗝️ **A hidden place worth finding** — reconstruct the right memory and the
+  sealed service annex on the canal bank opens; what was cached inside can be
+  read, and the street plan quietly makes room for it.
 - 📈 **Honest progression** — four glove upgrades bought with *derived*
   resonance motes (never farmed), plus a save/load system that refuses broken
   checkpoints with a reason instead of eating them.
 - 🗺️ **Map suite** — a **top-right mini-map** (`Tab`) for walking the city,
-  the full generated city map (`M`), and a case-file journal (`C`).
+  the full generated city map (`M`), and the memory journal (`J`).
 - 🎨 **Selective bloom & procedural materials** — HDR half-float rendering,
   ACES tone mapping, procedural normal maps, contact-shadow decals.
 - 🔊 **100% procedural audio** — a WebAudio soundscape (ambience bed,
@@ -91,7 +87,7 @@ Riven Vale is hired to find a missing woman and finds his own name instead.
 - 🎮 **Accessibility & touch** — interface scale, reduce-flicker,
   high-contrast cards (persisted separately from saves), and a minimal
   touch layer on coarse-pointer devices.
-- ✅ **373 automated checks** — one headless smoke suite plays the game
+- ✅ **242 automated checks** — one headless smoke suite plays the game
   end-to-end and fails the build on any regression.
 
 ## 🚀 Quick start
@@ -101,8 +97,8 @@ npm install
 npm run dev        # 👉 http://localhost:6030
 ```
 
-When the city is ready, the welcome case file greets you — **BEGIN THE CASE**
-starts the walk (that click also unlocks the sound). Then click the canvas once
+When the city is ready, the welcome title card greets you; **BEGIN THE WALK**
+starts the game (that click also unlocks the sound). Then click the canvas once
 to capture the mouse; `Esc` releases it.
 
 Production build / preview:
@@ -125,14 +121,12 @@ npm run preview    # http://localhost:4173
 | `Ctrl` | Crouch / sneak (hold) — slower, lower profile |
 | `Space` | Jump |
 | Mouse wheel | Camera distance (2.2–9 m) |
-| `E` | Extract memory · talk · open the cage & work box · close card |
+| `E` | Extract memory · open the annex door & sealed coffer · close card |
 | `J` | Memory journal (`↑ ↓` select · `Enter` reconstruct · `1` `2` weigh) |
-| `C` | Case file — missions, objectives, evidence |
-| `1` `2` `3` | Pick a dialogue choice while a conversation is open |
 | `V` | Resonance Sight (once unlocked) |
 | `Tab` | Toggle the **mini-map** (top-right: streets around you, live position) |
 | `M` | City map — the whole generated layout, districts, landmarks, pins |
-| `I` | Equipment & inventory — glove stats, upgrades, carried papers |
+| `I` | Equipment & inventory — glove stats, upgrades, mote balance |
 | `R` | Respawn at the district spawn |
 | `F5` | Toggle inspection camera (dev) |
 | `N` | New random seed (rebuilds the world) |
@@ -157,8 +151,8 @@ npm run preview    # http://localhost:4173
 Six **fragments** are recorded across the city — three on objects (the canal
 valve, the Palisade Tower directory, the conservatory plaque) and three on
 people (the station attendant, the night market trader, the Underarchive
-warden). A seventh person, the Glassline night clerk, carries no fragment of
-his own but has things to say once someone else's memory is replayed.
+warden). The Glassline night clerk stands nearby as city scenery —
+fragment-less, with nothing to say.
 
 **Extraction** — walk up to a source and press `E`. The glove channels for
 1.3 s (ring HUD); moving or `Esc` cancels it, and every use starts a 3.5 s
@@ -168,12 +162,12 @@ information it carries, discrete clues, a reliability rating and its own
 fragment's colour and the HUD animates its own way (shimmer, pulse, flicker,
 warp, drift or scrub) — six memories never read the same way twice.
 
-**Unreliable memories** — fragments are *evidence, not truth*. Two are marked
-`suspect` (something was cropped), two `manipulated` (one was edited to
-implicate Riven). The attendant's and the warden's memories fix the same event
-at 23:40 and cannot both hold; once you hold both, the journal lets you tag
-which account you believe (`1` / `2`). The glove keeps the evidence either
-way.
+**Unreliable memories** — fragments are *impressions, not truth*. Two are
+marked `suspect` (something was cropped), two `manipulated` (one was edited —
+a pasted violet-gloved hand that belongs to no one at the stall). The
+attendant's and the warden's memories fix the same event at 23:40 and cannot
+both hold; once you hold both, the journal lets you tag which account you
+believe (`1` / `2`). The glove keeps the fragment either way.
 
 **Reconstruction** — open the journal (`J`), select a fragment and press
 `Enter` while standing within 14 m of its recording site. For nine seconds
@@ -191,9 +185,10 @@ replay changes nothing.
 | 🏮 *The Lantern Vigil* | Unbars the hidden **Floodworks service annex** — its door sinks away, the sealed coffer inside can be read |
 | 🔦 *The Last Look* | Lights a clue marker over the Line 4 departure board |
 | 🌿 *The Observance* | Lights a clue marker over the conservatory plaque |
-| 🧾 *Sold Once, Bought Twice* | The trader will talk about the second sale |
-| 🛗 *Forty, Pressed Twice* | The night clerk will admit what runs the lift |
 | ⚡ *The Sealing* | Unlocks **Resonance Sight** (`V`) — through-wall echo pillars for 16 s, 45 s cooldown |
+
+The other two fragments change nothing but your journal — an echo does not
+have to move the world to be worth keeping.
 
 Progress **persists** in `localStorage` (`mt.memories.v1`) across journal
 close/reopen, page reloads and world rebuilds; replaying a fragment is always
@@ -238,72 +233,10 @@ stealth system decides what the city notices about you — and *why*.
   of sight blocked, awareness drains fast). The Underarchive square and the
   canal-lane annex approach are restricted zones that notice you simply for
   being there.
-- 💬 **People talk** — walking up to any agent offers `Talk to the …`. Lines
-  change when the agent is suspicious of you, and some open up only once the
-  right fragment is in your journal — the courier explains the tower's empty
-  23:40 lift only after you have reconstructed floor 40.
 
 Test hooks (used by `npm run smoke`): `__MT_AGENTS__`, `__MT_STEALTH__`,
 `__MT_HIDE__`, `__MT_ZONES__`, `__MT_AGENT_POS__`, `__MT_AGENT_PAUSE__`,
 `__MT_EMIT__`, `__MT_PROMPT_DBG__`.
-
-## 📁 The case file
-
-The story is told through the same evidence-first voice as the memories:
-short lines, conflicting accounts, and nothing handed over that you could not
-go and check yourself.
-
-**THE VENN CASE.** A man named **Tomas Venn** waits at the Old Quarter market
-charter (amber marker while the case is open). His sister Mira — a Palisade
-records clerk — has been missing for eleven days, and the official intake
-sheets insist she never worked there. He hires you to prove otherwise.
-
-- 🎭 **The commission is a choice.** *"I'll take it"* earns the route note
-  Mira wrote home — immediately. *"What's in it for me?"* earns ward scrip
-  instead (the retainer is dated **next week**) and a colder tone; the route
-  note arrives later, after your first finding. Both paths converge — the
-  chapter plays out identically afterwards, but the evidence in your case
-  file does not.
-- 🔍 **Three findings, any order.** The night market trader remembers a coil
-  of sleeve she carried; the station attendant is the last person who saw her
-  board; the Palisade courier can be told the truth (he goes cold, and you
-  take the cut ledger page he was told to lose) or a cover story (he stays
-  talkative and adds the 23:40 hint). Every objective is derived from current
-  state — talk to Tomas mid-case and he tells you exactly what is still
-  outstanding.
-- 🔒 **A locked location.** Behind the Floodworks annex, inside the records
-  cage, sits Mira's work box. The cage has no prompt before the case opens, a
-  lock that explains itself before Tomas hands you the key, and a dropped
-  gate (and her box) once he does. It is the only place in the chapter gated
-  behind progress; every witness is reachable from the start.
-- 📜 **The finale.** Mira's ledger records a Line 4 departure at **23:52** and
-  a lift to **floor 40** — the event the records deny. Under it, the intake
-  list for the dead: an eleventh name, **Riven Vale**. The chapter ends
-  pointing at your own missing memories without explaining them.
-- 🌿 **THE OBSERVANCE** is the optional side case: the night clerk and the
-  conservatory plaque's memorial garden. It adds context and two evidence
-  entries and *never* blocks the main mission — the case completes cleanly
-  with it left untouched.
-
-**Systems.** Missions are pure data (`src/story/missionDefs.js`): each
-declares its start condition, objectives with `visible`/`done` predicates,
-completion conditions and evidence rewards — the next chapter is data, not
-code. Dialogue trees (`src/story/dialogueDefs.js`) resolve against the same
-live state the journal uses (flags, held memories, completed objectives), so
-conversations always match your case. Choices apply `flag`/`evidence` effects
-through one funnel; nothing else writes story state. Flags only ever turn on
-and evidence never duplicates, so replaying a fragment, rebuilding the world
-or reloading the page can never lose or double-count progress
-(`localStorage: mt.story.v1`, cleared by `__MT_STORY_RESET__`).
-
-**The case-file tab.** `C` opens the journal straight onto it (or flips tabs
-if it is already open): missions and live objectives on the left, evidence
-with expandable bodies on the right, and — once two witnesses disagree about
-the same night — the discrepancy note on top.
-
-Test hooks (used by `npm run smoke` and `scripts/probe-story.mjs`):
-`__MT_STORY__`, `__MT_STORY_RESET__`, `__MT_STORY_POS__`, `__MT_DIALOGUE__`,
-`__MT_DIALOGUE_CHOOSE__`, `__MT_DIALOGUE_CLOSE__`, `__MT_CASE__`.
 
 ## 🧭 HUD, map & progression
 
@@ -311,21 +244,19 @@ Everything the player needs to *read* their game is on screen, the glove can
 be improved in small honest steps, and the save file never silently breaks.
 
 **The interface.** A minimal HUD — title and mode at the top left, the
-**mission tracker** under it (active case, up to three unfinished objectives,
-one quiet line for the side job — all derived live from `missions.view()`),
-the stealth chip top-centre, and the **mini-map in the top-right corner**.
+stealth chip top-centre, and the **mini-map in the top-right corner**.
 Three full-screen surfaces share the game's visual language:
 
 - 🗺️ **City map (`M`)** — the *generated* layout, not a picture: district
   blocks tinted by identity, the Floodworks canal with its bridges, named
   landmark pins (you chart one by walking within 55 m of it; unknown ones
-  show as faint `?`), the readings you hold, amber case markers, and your
+  show as faint `?`), the readings you hold, and your
   position as a chevron with heading. Hover a pin for its name, click it for
   a read-out card. Districts chart themselves the moment you step into them.
 - 🧰 **Equipment (`I`)** — the glove's live stats (channel time, noise radius,
   replay range, sight duration/recharge; upgraded rows turn green), the four
-  purchasable upgrades with plain-numbers descriptions, your mote balance,
-  and the papers people have handed you (route note, ward scrip, commission).
+  purchasable upgrades with plain-numbers descriptions, and your mote
+  balance.
 - ⏸️ **Pause menu (`P` or `Esc`)** — resume, save, load, settings, and **new
   game**. A checkpoint status line says exactly what exists on disk (none /
   saved at / unreadable / wrong build), and *New game…* always passes through
@@ -340,13 +271,13 @@ own key (`mt.a11y.v1`) and — deliberately — survive a new game.
 motes**: `KEEN LENS` (replay range 14 → 21 m), `MUFFLED CHANNEL` (extraction
 noise radius 12 → 6 m), `SWIFT CHANNEL` (channel 1.30 s → 0.91 s) and
 `ECHO CELL` (Sight 16 s / 45 s → 20 s / 31 s). Motes are *derived*, never
-farmed: **3 per reconstructed memory + 1 per evidence entry**, computed from
-state on every read — so progress made before this system existed counts
-retroactively, loading an old save can never double-pay, and the costs
-(total 20) are always reachable by playing the chapter.
+farmed: **4 per reconstructed memory**, computed from state on every read —
+so progress made before this system existed counts retroactively, loading an
+old save can never double-pay, and the costs (total 20) are always reachable
+by reconstructing all six memories.
 
 **Save / load.** `P → Save game` writes one checkpoint document
-(`localStorage: mt.save.v1`) holding memories, story, discovery, upgrades,
+(`localStorage: mt.save.v1`) holding memories, discovery, upgrades,
 player position and the seed. *Load* validates it first: a missing,
 unparseable, older-version or newer-version checkpoint is **refused with a
 reason and nothing is touched**; a valid one restores every system and
@@ -356,19 +287,19 @@ generation counter and player position hold still across every screen.
 
 **Systems.** Interface code never touches gameplay: `src/progression/`
 (`upgrades.js`, `discovery.js`, `saveManager.js`) is DOM-free data and rules,
-`src/ui/` (`hudTracker`, `mapScreen`, `equipmentScreen`, `pauseMenu`,
+`src/ui/` (`mapScreen`, `equipmentScreen`, `pauseMenu`,
 `accessibility`) is presentation that receives snapshots and returns
 decisions through callbacks. `main.js` is the only place progression effects
 reach gameplay (`applyProgressionEffects()` at boot, on purchase and on load).
 
-Test hooks: `__MT_GEN__`, `__MT_TRACKER__`, `__MT_MAP__`, `__MT_GEAR__`,
+Test hooks: `__MT_GEN__`, `__MT_MAP__`, `__MT_GEAR__`,
 `__MT_PAUSE__`, `__MT_SAVE__`, `__MT_A11Y__`, `__MT_MINIMAP__` (plus
 `duration` on `__MT_EXTRACT__`).
 
 ## 🎨 Visuals, audio & performance
 
 This layer polishes what already works rather than replacing it: the same
-city, the same case, now with weighted air, a mixed soundscape, and rendering
+city, now with weighted air, a mixed soundscape, and rendering
 costs that scale honestly with the graphics preset.
 
 **Ambient particles.** A single additive `Points` cloud of slow-drifting dust
@@ -572,7 +503,7 @@ glove).
 
 **Interaction.** The prompt already said *what* was in reach; it now shows
 *where*. A soft additive **focus ring** on the ground plus a floating marker
-glide to whichever target owns the prompt (source, story character, agent or
+glide to whichever target owns the prompt (source, agent or
 interactable). The prompt eases up into place and its `E` badge pulses. All
 of this is presentational: every key, prompt string and priority rule is
 unchanged, so the existing tests still pass verbatim.
@@ -626,12 +557,12 @@ ground-reaching drop, a knee-bending **landing absorb**, and a rotating set
 of four **idle beats** (glance at the glove, adjust the collar strap, an
 over-the-shoulder check, a weight-stamp) on a 9.5 s cycle. `fireGesture()`
 is a named table — `reach`, `point`, `brace`, `adjust`, `wave` — used by
-interactions and dialogue.
+interactions.
 
 **A mini-map, not a map viewer.** `src/ui/miniMap.js` draws a 184 px radar in
 the **top-right corner** at ~8 Hz from the *same* snapshot the full map uses:
 the streets and blocks within **±120 m**, district tints, the canal and its
-bridges, landmark pins, held readings, amber case markers, and you as a
+bridges, landmark pins, held readings, and you as a
 chevron with a facing cone. It deliberately does **not** show people —
 guards stay off the radar, so stealth is still played by eye. It follows the
 HUD (`H`), steps aside for any overlay, and `Tab` toggles it. The full city
@@ -693,7 +624,7 @@ actually articulating).
 ## 🗂️ Project layout
 
 ```
-index.html            UI shell: loading screen, welcome case-file screen, HUD,
+index.html            UI shell: loading screen, welcome title screen, HUD,
                       settings panel, prompts, memory journal, extraction ring,
                       reconstruction overlay
 src/
@@ -709,24 +640,19 @@ src/
   environment/        sky + env map, lighting rig, rain
   character/          Riven Vale model + procedural animator
   npc/                bystander figures, NPC agent (perception + behaviour
-                      state machine), dialogue lines
+                      state machine)
   stealth/            stealth system (awareness states + reasons)
   player/             collision system, movement controller, third-person camera
   interaction/        interactable objects placed from the layout
   memories/           fragment catalogue, memory manager, reconstruction player
-  story/              story state (flags + evidence, persisted), mission
-                      definitions + manager, dialogue definitions + runner,
-                      story cast (Tomas Venn)
   audio/              procedural WebAudio cues (no sample files)
   ui/                 loading + welcome screens, HUD, settings panel,
-                      prompt/read-out card, memory journal + case-file tab +
-                      extraction channel, stealth HUD, dialogue card, city map,
+                      prompt/read-out card, memory journal + extraction
+                      channel, stealth HUD, city map,
                       corner mini-map
-scripts/smoke.mjs     headless screenshot/error/welcome/gameplay/memory/city-life/story
-                      smoke test (373 checks, exit code reflects failures)
+scripts/smoke.mjs     headless screenshot/error/welcome/gameplay/memory/city-life
+                      smoke test (242 checks, exit code reflects failures)
 scripts/probe.mjs     headless runtime probe (stats + lights, no screenshots)
-scripts/probe-story.mjs  focused chapter walkthrough probe (fresh save, both
-                      choice paths, PASS/FAIL per step)
 scripts/probe-ui.mjs  focused UI probe (mini-map, map/journal keys, camera
                       ground clamp, articulated gait)
 scripts/probe-geo.mjs focused geometry probe (how renderer.info counts
@@ -736,17 +662,16 @@ scripts/probe-geo.mjs focused geometry probe (how renderer.info counts
 ## 🧪 Testing
 
 One headless smoke suite (`scripts/smoke.mjs`, headless Edge + Puppeteer)
-starts the dev server, plays the game and asserts **373 checks** in seven
+starts the dev server, plays the game and asserts **242 checks** in six
 groups — the exit code reflects failures, so it gates every change:
 
 | 🔍 Group | Checks | What it proves |
 | --- | --- | --- |
-| 🛈 Welcome | 4 | the case-file screen greets you before play, the movement gate holds behind it, BEGIN starts the case, it never comes back |
+| 🛈 Welcome | 4 | the title screen greets you before play, the movement gate holds behind it, BEGIN starts the walk, it never comes back |
 | 🎮 Gameplay | 30 | walking, sprinting, jumping, collision (walls, barriers, camera boom), prompts, read-out cards |
-| 🧠 Memory | 63 | extraction + cooldown/cancel paths, journal, contradictions, reconstruction playback/cancellation, the hidden door, dialogue unlocks, Resonance Sight |
-| 🏙️ City life | 30 | population & archetypes, hide spots, restricted zones, patrol movement, SUSPICIOUS→DETECTED escalation with reasons, investigate→search→return cycle, cover breaking line of sight |
-| 📖 Story | 115 | the Venn case end to end: both dialogue-choice paths, order-independent objectives, the locked cage, the optional side case, case-file journal, reload persistence |
-| 📈 Progression | 88 | HUD tracker, city map & pins, mini-map + `Tab` toggle, extraction noise, upgrade shop, pause/settings/save-load/new-game round-trips |
+| 🧠 Memory | 59 | extraction + cooldown/cancel paths, journal, contradictions, reconstruction playback/cancellation, the hidden door, replay gating, Resonance Sight |
+| 🏙️ City life | 26 | population & archetypes, hide spots, restricted zones, patrol movement, SUSPICIOUS→DETECTED escalation with reasons, investigate→search→return cycle, cover breaking line of sight |
+| 📈 Progression | 80 | city map & pins, mini-map + `Tab` toggle, extraction noise, upgrade shop, pause/settings/save-load/new-game round-trips |
 | ✅ Quality | 43 | low/medium/high presets, draw-call & GPU-resource leak budgets, same-seed rebuild determinism, volume buses, reduce-FX, fixed-lens camera |
 
 ```bash
@@ -769,7 +694,6 @@ Faster focused probes for iteration:
 
 ```bash
 node scripts/probe.mjs market        # runtime probe (world stats + light rig)
-node scripts/probe-story.mjs         # whole chapter walkthrough, PASS/FAIL per step
 node scripts/probe-ui.mjs            # mini-map, map/journal keys, camera clamp, gait
 ```
 
@@ -855,7 +779,7 @@ directory or a plaque offers the same. A successful reading opens the
 journal on the recovered fragment. Replay it at its site and violet ghosts
 play the recorded event around you while the fog closes in — then the city
 is subtly different: a door unbars on the canal bank, a marker burns over a
-clue, a person will finally talk.
+clue.
 
 The streets *live*: guards patrol with their hands clasped, civilians walk
 with shopping, vendors stand their market corner, and the Palisade courier
@@ -868,16 +792,9 @@ while the guard searches the spot you vanished from. Channel an extraction
 in the open and everyone within earshot turns; do it behind cover and no
 one notices at all.
 
-An amber marker leads to a patient man at the market charter: Tomas Venn,
-who hires you on the spot for his missing sister. Open the case file (`C`)
-and the journal grows a second face — objectives on the left, evidence on
-the right. Talk to the trader, the attendant and the courier in any order
-and the case file keeps up; talk to Tomas instead and he reads the
-outstanding work back to you. When he finally hands you the key, the records
-cage inside the canal annex drops its gate and Mira's work box is waiting —
-with a ledger that says the city's own records lie, and an intake list with
-your name on it. Conversations are cards with numbered choices; picking the
-hard truth at the courier changes what he will ever say to you again.
+Two of the six memories fix the same event at 23:40 and cannot both hold.
+Once the journal holds both, it shows the discrepancy and lets you tag which
+account you believe (`1` / `2`) — the glove keeps the fragment either way.
 
 At the default (medium) preset and 12×12 grid the world is ~410 merged
 meshes, ~4 900 instanced props and roughly 500 k generated triangles, drawn
@@ -888,8 +805,7 @@ six-mesh figures, one small annex and a handful of additive markers — under
 six-mesh agents (each one mesh per body part, shared geometry and materials
 per archetype) for ~440 total draw calls in the street test — comfortably
 inside the budget; the figures' documented scale-up route is instancing if
-the population grows. The story adds one figure and a handful of additive
-markers — under five extra draw calls, and only while they are on screen.
+the population grows.
 
 ## ⚠️ Known limitations
 
@@ -926,18 +842,11 @@ markers — under five extra draw calls, and only while they are on screen.
   "sees" across it; hiding spots and walls model their blocking as radius
   volumes rather than per-fragment occlusion.
 - **No schedules** — agents repeat their round indefinitely; there is no
-  time-of-day behaviour and no free-form dialogue (talk is scripted per
-  suspicion state, fragment consequence and mission state).
-- **The opening chapter is fully authored but singular** — one complete case
-  with two branching choices; the mission/dialogue systems are generic
-  (data + predicates), but no second chapter exists yet.
-- **Story characters stand at their posts** — Tomas Venn idles at the market
-  charter like the landmark figures; only the courier actually walks.
-- **The records cage gate animates open, not shut** — the story reset hook
-  (`__MT_STORY_RESET__`) restores the *logic* (the lock refuses without the
-  key) but the gate mesh stays down until the world is rebuilt.
-- **Landmark figures still idle** — the four memory-source people stand at
-  their posts (they are extraction sources first, patrollers second).
+  time-of-day behaviour and no dialogue — agents are non-interactive walkers
+  by design.
+- **Landmark figures still idle** — the four memory-source people and the
+  fragment-less night clerk stand at their posts (they are extraction
+  sources first, patrollers second).
 - **Reconstructions play at the recording site only** — you must walk back
   to the source to replay (the journal tells you how far you are).
 - Memory state persists in `localStorage`; if storage is unavailable
@@ -969,7 +878,7 @@ markers — under five extra draw calls, and only while they are on screen.
   are no recorded samples, so footsteps and machinery are convincing but
   not photoreal. Browsers without WebAudio run the game silently by design.
 - **Touch controls cover movement, look, interact, jump and sprint only.**
-  Menus, the journal, the map and dialogue remain keyboard+mouse — a touch
+  Menus, the journal and the map remain keyboard+mouse — a touch
   device can play the game but cannot easily navigate every screen. This is
   a minimal practical layer, not a full mobile control scheme, and it was
   not tested on physical touch hardware (only that it stays out of the way

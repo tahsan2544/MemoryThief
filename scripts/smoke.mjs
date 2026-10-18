@@ -61,7 +61,7 @@ async function shot(page, warnings, file) {
 }
 
 /* --------------------------------------------------------------------- *
- * Welcome screen — the case file the city greets you with
+ * Welcome screen — the title card the city greets you with
  * --------------------------------------------------------------------- */
 
 async function runWelcomeTests(page, errors, warnings) {
@@ -92,7 +92,7 @@ async function runWelcomeTests(page, errors, warnings) {
     .waitForFunction('window.__MT_WELCOME__ && window.__MT_WELCOME__() === false', { timeout: 20000 })
     .then(() => true)
     .catch(() => false);
-  check('BEGIN starts the case', gone);
+  check('BEGIN starts the walk', gone);
 
   // and it stays gone once the walk begins
   await new Promise((r) => setTimeout(r, 1200));
@@ -102,24 +102,6 @@ async function runWelcomeTests(page, errors, warnings) {
   const passed = results.filter((r) => r.ok).length;
   console.log(`[smoke] welcome checks: ${passed}/${results.length} passed`);
   return results;
-}
-
-/**
- * Click the welcome's real button and wait for the gate to lift. A page
- * (re)load always greets the player again — that is the title screen working —
- * so every fresh load in the suite must dismiss it before driving the game.
- */
-async function dismissWelcome(page) {
-  await page
-    .waitForFunction('typeof window.__MT_WELCOME__ === "function" && window.__MT_WELCOME__() === true', {
-      timeout: 30000,
-    })
-    .catch(() => {});
-  const up = await page.evaluate(() => (typeof window.__MT_WELCOME__ === 'function' ? window.__MT_WELCOME__() : 'missing'));
-  if (up !== true) return up;
-  await page.click('#welcome-start');
-  await page.waitForFunction('window.__MT_WELCOME__() === false', { timeout: 20000 }).catch(() => {});
-  return page.evaluate(() => window.__MT_WELCOME__());
 }
 
 /* --------------------------------------------------------------------- *
@@ -406,7 +388,7 @@ async function runPlayTests(page, errors, warnings) {
 
 /* --------------------------------------------------------------------- *
  * Phase 3 — memory mechanic checks (extraction, journal, reconstruction,
- * contradictions, hidden door, dialogue unlock, Resonance Sight)
+ * contradictions, hidden door, replay gating, Resonance Sight)
  *
  * Same philosophy as the Phase 2 checks: poll, never sleep-and-hope. All
  * gameplay timers are wall clock, so channels/cooldowns/reconstructions
@@ -649,7 +631,7 @@ async function runMemoryTests(page, errors, warnings) {
       };
       return {
         mode: window.__MT_MODE__?.() ?? '?',
-        // The game's OWN movement gate (panel / inspect / journal / dialogue /
+        // The game's OWN movement gate (panel / inspect / journal /
         // reconstruction / extraction / map / equipment / pause) — authoritative
         // for "may the player move", and it also covers states like an in-flight
         // extraction that carry no `hidden` class to read off the DOM. 'unknown'
@@ -661,7 +643,6 @@ async function runMemoryTests(page, errors, warnings) {
             : 'unknown',
         journal: open('journal'),
         inspect: open('inspect'),
-        dialogue: open('dialogue'),
         map: open('map'),
         gear: open('gear'),
         pause: open('pause'),
@@ -719,14 +700,12 @@ async function runMemoryTests(page, errors, warnings) {
   await ev(() => window.__MT_JOURNAL__(false)); // recovery auto-opened the journal
 
   await nearSource('src-station-attendant');
-  const talkPrompt = await promptText();
-  check('held NPC offers talk instead of extraction', /Talk to/.test(talkPrompt), talkPrompt);
-  await ev(() => window.__MT_PRESS__('KeyE'));
-  await openCard();
-  const lockedTalk = await cardBody();
-  check('talk before replay gives the guarded line', /Finish the reading first/.test(lockedTalk), lockedTalk.slice(0, 52));
-  await ev(() => window.__MT_PRESS__('KeyE'));
-  await closeCard();
+  const heldPrompt = await promptText();
+  check(
+    'held NPC goes quiet — no talk, no second extraction',
+    !/Talk to/i.test(heldPrompt) && !/Extract memory/.test(heldPrompt),
+    heldPrompt,
+  );
 
   await waitCooldown();
   await ev((s) => window.__MT_TP__(s.x - 2.2, s.z + 1.0, Math.PI / 2), warden);
@@ -754,7 +733,7 @@ async function runMemoryTests(page, errors, warnings) {
   );
   await ev(() => window.__MT_JOURNAL__(false));
 
-  // ---- 9. dialogue unlock (market trader): extract → replay → talk --------
+  // ---- 9. replay at the trader site (extract → replay) --------------------
   await waitCooldown();
   await ev((s) => window.__MT_TP__(s.x - 2.2, s.z + 1.0, Math.PI / 2), trader);
   await nearSource('src-market-trader');
@@ -767,15 +746,8 @@ async function runMemoryTests(page, errors, warnings) {
   check('replay starts at the trader site', startedTrader === true, String(startedTrader));
   await replayTo('mem-market-bargain');
   await until(() => ev(() => window.__MT_RECON__()), (r) => r.active === false, 30000);
-  await nearSource('src-market-trader');
-  await ev(() => window.__MT_PRESS__('KeyE'));
-  await openCard();
-  const traderLine = await cardBody();
-  check('dialogue line unlocks after replay', /I sold one coil/.test(traderLine), traderLine.slice(0, 56));
-  await ev(() => window.__MT_PRESS__('KeyE'));
-  await closeCard();
 
-  // ---- 10. conditional dialogue on a fragment-less NPC (the clerk) --------
+  // ---- 10. the fifth fragment (the directory) -----------------------------
   await waitCooldown();
   await ev((s) => window.__MT_TP__(s.x - 1.9, s.z, Math.PI / 2), directory);
   await nearSource('src-tower-directory');
@@ -786,19 +758,6 @@ async function runMemoryTests(page, errors, warnings) {
   await ev((id) => window.__MT_RECON_START__(id), 'mem-tower-elevator');
   await replayTo('mem-tower-elevator');
   await until(() => ev(() => window.__MT_RECON__()), (r) => r.active === false, 30000);
-  // stand beyond the directory source's radius (3.2 m) but inside the clerk's
-  // (2.6 m) — the sign sits only ~3.3 m from the clerk, so a naive offset
-  // would land closest to the sign and read its card instead of the clerk
-  await ev((s) => window.__MT_TP__(s.x + 2.24, s.z - 0.87, -1.2), clerk);
-  await nearSource('src-glassline-clerk');
-  const clerkPrompt = await promptText();
-  check('clerk offers talk from a clean position', /Talk to the night clerk/.test(clerkPrompt), clerkPrompt);
-  await ev(() => window.__MT_PRESS__('KeyE'));
-  await openCard();
-  const clerkLine = await cardBody();
-  check('clerk dialogue unlocks from another fragment', /shelf/.test(clerkLine), clerkLine.slice(0, 56));
-  await ev(() => window.__MT_PRESS__('KeyE'));
-  await closeCard();
 
   // ---- 11. Resonance Sight: locked → unlock → use → cooldown -------------
   await ev(() => window.__MT_PRESS__('KeyV'));
@@ -890,7 +849,6 @@ async function runCityLifeTests(page, errors, warnings) {
       const el = document.getElementById('prompt');
       return !el || el.classList.contains('hidden') ? '' : (document.getElementById('prompt-label')?.textContent ?? '');
     });
-  const cardBody = () => ev(() => document.getElementById('inspect-body')?.textContent ?? '');
 
   async function until(fn, predicate, timeoutMs = 20000, intervalMs = 400) {
     const deadline = Date.now() + timeoutMs;
@@ -1110,42 +1068,7 @@ async function runCityLifeTests(page, errors, warnings) {
   const gv2 = (await ev(() => window.__MT_AGENTS__())).find((a) => a.id === guard1.id);
   check('extraction in the open is noticed', openEmit >= 1 && gv2.awareness > 0.3, `${openEmit} notified, awareness ${gv2.awareness.toFixed(2)}`);
 
-  // ---- 12. agents respond to interaction; target dialogue is gated ------
-  await ev((id, x, z, fx, fz) => window.__MT_AGENT_POS__(id, x, z, fx, fz), guard1.id, px + 1.5, pz, px, pz);
-  await ev((x, z) => window.__MT_TP__(x, z, 0), px, pz);
-  const talkPrompt = await until(promptText, (t) => /Talk to the/i.test(t), 15000);
-  const talkDbg = await ev(() => window.__MT_PROMPT_DBG__());
-  check(
-    'walking up to an agent offers a talk prompt',
-    /Talk to the security guard/i.test(talkPrompt),
-    `${talkPrompt} | claimants=${JSON.stringify({ src: talkDbg.src, agent: talkDbg.agent, it: talkDbg.it, p: talkDbg.p })}`,
-  );
-  await ev(() => window.__MT_PRESS__('KeyE'));
-  const openTalk = await until(() => ev(() => window.__MT_INTERACT__()), (n) => n.open === true, 15000);
-  check('E opens the agent conversation', openTalk.open === true);
-  await ev(() => window.__MT_PRESS__('Escape'));
-  await until(() => ev(() => window.__MT_INTERACT__()), (n) => n.open === false, 15000);
-
-  const courier = agents.find((a) => a.type === 'target');
-  const mem = await ev(() => window.__MT_MEM__());
-  const hasTower = mem.collected.some((c) => c.id === 'mem-tower-elevator');
-  await ev((id, x, z) => window.__MT_AGENT_POS__(id, x, z), guard1.id, px - 30, pz);
-  await ev((id, x, z, fx, fz) => window.__MT_AGENT_POS__(id, x, z, fx, fz), courier.id, px + 1.5, pz, px, pz);
-  await ev((x, z) => window.__MT_TP__(x, z, 0), px, pz);
-  const courierPrompt = await until(promptText, (t) => /Talk to the palisade courier/i.test(t), 15000);
-  check('investigation target is talkable by name', /palisade courier/i.test(courierPrompt), courierPrompt);
-  await ev(() => window.__MT_PRESS__('KeyE'));
-  await until(() => ev(() => window.__MT_INTERACT__()), (n) => n.open === true, 15000);
-  const courierBody = await cardBody();
-  await ev(() => window.__MT_PRESS__('Escape'));
-  await until(() => ev(() => window.__MT_INTERACT__()), (n) => n.open === false, 15000);
-  check(
-    'courier dialogue changes once the tower memory is reconstructed',
-    hasTower ? /floor 40/i.test(courierBody) : !/floor 40/i.test(courierBody),
-    hasTower ? 'gated line shown' : 'baseline line shown',
-  );
-
-  // ---- 13. performance budget --------------------------------------------
+  // ---- 12. performance budget --------------------------------------------
   const stats = await ev(() => window.__MT_STATS__());
   check('agent crowd stays within the draw-call budget', stats.calls > 0 && stats.calls < 800, `${stats.calls} calls`);
 
@@ -1155,390 +1078,10 @@ async function runCityLifeTests(page, errors, warnings) {
   if (passed !== results.length) warnings.push(`${results.length - passed} city-life check(s) failed`);
 }
 
-/* --------------------------------------------------------------------- *
- * Phase 5 — story: the Venn case, played end to end
- *
- * Ports scripts/probe-story.mjs into the suite: the opening chapter from a
- * fresh case state through both dialogue-choice paths, order-independent
- * objectives, the locked records cage (wrong/delayed actions included), the
- * optional side investigation, journal evidence, and persistence. Phases
- * 2–4 already ran in this page session, so five fragments are held and the
- * annex door is unbarred — the same state a player reaches organically.
- * --------------------------------------------------------------------- */
-
-async function runStoryTests(page, errors, warnings) {
-  const results = [];
-  const check = (name, ok, detail = '') => {
-    results.push({ name, ok });
-    const line = detail ? `${name} — ${detail}` : name;
-    if (ok) console.log(`[smoke]   ok   ${line}`);
-    else {
-      errors.push(`story: ${line}`);
-      console.log(`[smoke]   FAIL ${line}`);
-    }
-  };
-  const ev = (fn, ...args) => page.evaluate(fn, ...args);
-
-  async function until(fn, pred, timeoutMs = 30000, intervalMs = 350) {
-    const deadline = Date.now() + timeoutMs;
-    let v = await fn();
-    while (!pred(v) && Date.now() < deadline) {
-      await sleep(intervalMs);
-      v = await fn();
-    }
-    return v;
-  }
-  const hasMem = (id) => ev((i) => window.__MT_MEM__().collected.some((f) => f.id === i), id);
-  const story = () => ev(() => window.__MT_STORY__());
-  const dlg = () => ev(() => window.__MT_DIALOGUE__());
-  const tp = async (x, z) => {
-    await ev((a, b) => window.__MT_TP__(a, b), x, z);
-    await sleep(1200); // let a slow frame settle the teleport
-  };
-  const promptText = () =>
-    ev(() => {
-      const el = document.getElementById('prompt');
-      if (!el || el.classList.contains('hidden')) return '';
-      return document.getElementById('prompt-label')?.textContent || '';
-    });
-  const inspectBody = () =>
-    ev(() => {
-      const el = document.getElementById('inspect');
-      if (!el || el.classList.contains('hidden')) return '';
-      return document.getElementById('inspect-body')?.textContent || '';
-    });
-  const press = async (code) => {
-    await ev((c) => window.__MT_PRESS__(c), code);
-    await sleep(700);
-  };
-  const closeJournal = async () => {
-    await ev(() => window.__MT_JOURNAL__(false));
-    await sleep(350);
-  };
-  /** Poll for a prompt — SwiftShader can need a frame or two after a teleport. */
-  async function waitPrompt(pred, timeout = 30000) {
-    return until(promptText, pred, timeout);
-  }
-  /** Press E at the prompt and wait for the conversation card. */
-  async function openDialogue(expectLabel, timeout = 30000) {
-    const p = await waitPrompt((t) => expectLabel.test(t), timeout);
-    check(`prompt: ${expectLabel}`, expectLabel.test(p), p || '(none)');
-    if (!expectLabel.test(p)) return false;
-    await press('KeyE');
-    const d = await until(dlg, (x) => x.open, 30000);
-    check('dialogue opened', d.open, (d.title || '').slice(0, 44));
-    return d.open;
-  }
-  async function choose(i) {
-    await ev((k) => window.__MT_DIALOGUE_CHOOSE__(k), i);
-    await sleep(700);
-    const d = await dlg();
-    check(`choice ${i} accepted`, d.open, (d.body || '').slice(0, 44).replace(/\s+/g, ' '));
-    return d;
-  }
-  const closeDlg = async () => {
-    if (!(await dlg()).open) return; // never leak an E into the world
-    await press('KeyE');
-    const d = await until(dlg, (x) => !x.open, 20000);
-    check('dialogue closed', !d.open);
-  };
-
-  await ev(() => window.__MT_SET_MODE__('play'));
-  await closeJournal();
-
-  /* ---- 1. a fresh case ------------------------------------------------ */
-  let s = await story();
-  check('case: main mission active on entry', s.missions?.[0]?.status === 'active', s.missions?.[0]?.status);
-  check('case: side mission locked on entry', s.missions?.[1]?.status === 'locked', s.missions?.[1]?.status);
-  check('case: no evidence on entry', (s.evidence || []).length === 0, String(s.evidence?.length));
-  const mk = await until(() => story(), (t) => (t.markers || []).length > 0, 20000);
-  check('case: marker points at Tomas', mk.markers?.[0]?.id === 'tomas', JSON.stringify(mk.markers?.[0] || null));
-
-  /* ---- 2. case-file tab before the meeting ---------------------------- */
-  await ev(() => {
-    window.__MT_JOURNAL__(true);
-    window.__MT_CASE__('case');
-  });
-  await sleep(500);
-  let c = await ev(() => window.__MT_CASE__());
-  check('case file: single objective before the meeting', c.objectives === 1, String(c.objectives));
-  check('case file: nothing done yet', c.objectivesDone === 0, String(c.objectivesDone));
-  check('case file: side mission listed but locked', (c.missions || []).includes('third-watch'));
-  await closeJournal();
-
-  /* ---- 3. the locked location is invisible before the case ------------ */
-  const secret0 = await ev(() => window.__MT_SECRET__());
-  check('annex door unbarred by the memory replay', !!(secret0 && secret0.open), JSON.stringify(secret0));
-  const sources = await ev(() => window.__MT_SOURCES__());
-  const byId = (id) => sources.find((x) => x.id === id);
-  await tp(secret0.x + 0.1, secret0.z - 0.45);
-  const preCasePrompt = await waitPrompt((t) => t.length > 0, 20000);
-  check(
-    'records cage has no prompt before the case opens',
-    !/records cage/i.test(preCasePrompt),
-    preCasePrompt || '(none)',
-  );
-
-  /* ---- 4. meet Tomas (choice A) ---------------------------------------- */
-  const tpos = await ev((id) => window.__MT_STORY_POS__(id), 'tomas');
-  check('Tomas stands in the world', !!tpos && Number.isFinite(tpos.x), JSON.stringify(tpos));
-  await tp(tpos.x + 1.5, tpos.z + 1.5);
-  let ok = await openDialogue(/Talk to Tomas Venn/);
-  if (ok) {
-    let d = await dlg();
-    check('commission offers two choices', (d.choices || []).length === 2, String((d.choices || []).length));
-    check('commission names Mira Venn', /Mira/.test(d.body || ''));
-    d = await choose(0); // "I'll take it"
-    check('choice A hands over the route note', /route|wrote it down/i.test(d.body || ''), (d.body || '').slice(0, 40));
-    await closeDlg();
-  }
-  s = await story();
-  const fl = (n) => (s.flags || []).includes(n);
-  check('commission: met-tomas flag', fl('met-tomas'));
-  check('commission: route-note flag (choice A)', fl('route-note'));
-  check('commission: hiring evidence filed', !!s.evidence.find((e) => e.id === 'ev-hiring'));
-  check('commission: route evidence filed', !!s.evidence.find((e) => e.id === 'ev-route'));
-  check('commission: no retainer on the A path', !s.evidence.find((e) => e.id === 'ev-retainer'));
-
-  /* ---- 5. wrong action: the cage, before the key ----------------------- */
-  await tp(secret0.x + 0.1, secret0.z - 0.45);
-  const lockedPrompt = await waitPrompt((t) => /records cage/i.test(t), 30000);
-  check('cage prompts once the case is open', /records cage/i.test(lockedPrompt), lockedPrompt || '(none)');
-  if (/records cage/i.test(lockedPrompt)) await press('KeyE');
-  const lockedCard = await until(inspectBody, (b) => b.length > 0, 20000);
-  check('cage without the key explains itself', /three findings|key/i.test(lockedCard), lockedCard.slice(0, 56));
-  await press('Escape');
-  await until(inspectBody, (b) => b.length === 0, 15000);
-
-  /* ---- 6. delayed action: Tomas's status line mid-case ----------------- */
-  await tp(tpos.x + 1.5, tpos.z + 1.5);
-  ok = await openDialogue(/Talk to Tomas Venn/);
-  if (ok) {
-    const d = await dlg();
-    check('mid-case status lists the outstanding work', /trader|station|tower/i.test(d.body || ''), (d.body || '').slice(0, 52).replace(/\s+/g, ' '));
-    await closeDlg();
-  }
-
-  /* ---- 7. witness one: the attendant ----------------------------------- */
-  const att = byId('src-station-attendant');
-  await tp(att.x + 1.5, att.z + 1.5);
-  ok = await openDialogue(/Talk to the station attendant/);
-  if (ok) {
-    let d = await dlg();
-    check('attendant can be asked about Mira', /Mira/.test(JSON.stringify(d.choices || [])));
-    d = await choose(0);
-    check('attendant account: 23:40', /23:40/.test(d.body || ''), (d.body || '').slice(0, 40));
-    await closeDlg();
-  }
-  s = await story();
-  check('attendant: asked-attendant flag', fl('asked-attendant'));
-  check('attendant: sighting evidence filed', !!s.evidence.find((e) => e.id === 'ev-sighting'));
-
-  /* ---- 8. witness two: the courier (truth path) ------------------------ */
-  const agents = await ev(() => window.__MT_AGENTS__());
-  const courier = agents.find((a) => a.type === 'target');
-  check('courier walks the city', !!courier, courier ? courier.id : 'none');
-  if (courier) {
-    // a memory source outranks an agent on the prompt: step away first
-    await ev(() => window.__MT_SPAWN__('oldquarter'));
-    await sleep(900);
-    const p = await ev(() => window.__MT_PLAYER__());
-    await ev(
-      (id, x, z, fx, fz) => window.__MT_AGENT_POS__(id, x, z, fx, fz),
-      courier.id, p.pos[0] + 1.5, p.pos[2], p.pos[0], p.pos[2],
-    );
-    ok = await openDialogue(/palisade courier/i);
-    if (ok) {
-      let d = await dlg();
-      check('courier offers two choices', (d.choices || []).length === 2, String((d.choices || []).length));
-      d = await choose(0); // tell the truth
-      check('courier truth: 23:52 / floor 40', /23:52|floor 40/i.test(d.body || ''), (d.body || '').slice(0, 44));
-      await closeDlg();
-    }
-    // consequence: the same courier refuses to open the case again
-    const p2 = await ev(() => window.__MT_PLAYER__());
-    await ev(
-      (id, x, z, fx, fz) => window.__MT_AGENT_POS__(id, x, z, fx, fz),
-      courier.id, p2.pos[0] + 1.5, p2.pos[2], p2.pos[0], p2.pos[2],
-    );
-    ok = await openDialogue(/palisade courier/i);
-    if (ok) {
-      const d = await dlg();
-      check('courier goes cold after the truth', !d.choices || d.choices.length === 0, (d.body || '').slice(0, 44));
-      await closeDlg();
-    }
-  }
-  s = await story();
-  check('courier: tower-traced flag', (s.flags || []).includes('tower-traced'));
-  check('courier: courier-cold consequence flag', (s.flags || []).includes('courier-cold'));
-  check('courier: cut ledger page filed', !!s.evidence.find((e) => e.id === 'ev-tower-ledger'));
-
-  /* ---- 9. witness three LAST — objectives are order-independent -------- */
-  const trader = byId('src-market-trader');
-  await tp(trader.x + 1.5, trader.z + 1.5);
-  ok = await openDialogue(/Talk to the night market trader/);
-  if (ok) {
-    await choose(0); // ask about Mira
-    const d = await dlg();
-    check('trader account: coil sleeve', /coil sleeve/i.test(d.body || ''), (d.body || '').slice(0, 44));
-    await closeDlg();
-  }
-  s = await story();
-  check('trader: asked-trader flag', (s.flags || []).includes('asked-trader'));
-  check('trader: account evidence filed', !!s.evidence.find((e) => e.id === 'ev-trader-account'));
-
-  /* ---- 10. three findings → Tomas hands over the key ------------------- */
-  await ev(() => {
-    window.__MT_JOURNAL__(true);
-    window.__MT_CASE__('case');
-  });
-  await sleep(400);
-  c = await ev(() => window.__MT_CASE__());
-  check('case file: 4 objectives done after all three', c.objectivesDone === 4, `done=${c.objectivesDone} of ${c.objectives}`);
-  check('case file: key objective now visible', c.objectives >= 5, String(c.objectives));
-  await closeJournal();
-  await tp(tpos.x + 1.5, tpos.z + 1.5);
-  ok = await openDialogue(/Talk to Tomas Venn/);
-  if (ok) {
-    const d = await dlg();
-    check('key handover names the records cage', /records cage/i.test(d.body || ''), (d.body || '').slice(0, 50).replace(/\s+/g, ' '));
-    await closeDlg();
-  }
-  s = await story();
-  check('key: annex-key flag', (s.flags || []).includes('annex-key'));
-
-  /* ---- 11. the cage opens; the work box waits inside -------------------- */
-  await tp(secret0.x + 0.1, secret0.z - 0.45);
-  const withKey = await waitPrompt((t) => /records cage/i.test(t), 30000);
-  check('cage prompts with the key in hand', /records cage/i.test(withKey), withKey || '(none)');
-  if (/records cage/i.test(withKey)) await press('KeyE');
-  const opened = await until(() => story(), (t) => t.cage && t.cage.open, 30000);
-  check('records cage gate drops', !!(opened.cage && opened.cage.open), opened.cage ? JSON.stringify(opened.cage) : 'no cage state');
-  check('work box replaces the gate prompt', !!(opened.cage && opened.cage.boxInWorld));
-  await tp(secret0.x - 0.5, secret0.z - 1.35);
-  const boxPrompt = await waitPrompt((t) => /work box/i.test(t), 30000);
-  check('work box prompts inside the cage', /work box/i.test(boxPrompt), boxPrompt || '(none)');
-  if (/work box/i.test(boxPrompt)) await press('KeyE');
-  const dfin = await until(dlg, (x) => x.open, 30000);
-  check('work box opens the finale', dfin.open, (dfin.title || '').slice(0, 44));
-  check('finale puts Riven Vale on the intake list', /RIVEN VALE/.test(dfin.body || ''));
-  await closeDlg();
-  s = await story();
-  check('finale: case-closed flag', (s.flags || []).includes('case-closed'));
-  check('main mission complete', s.missions?.[0]?.status === 'complete', s.missions?.[0]?.status);
-  check('ledger evidence filed', !!s.evidence.find((e) => e.id === 'ev-ledger'));
-  check('intake-list evidence filed', !!s.evidence.find((e) => e.id === 'ev-intake'));
-  check('witness discrepancy computed', !!s.discrepancy, String(s.discrepancy).slice(0, 48));
-  check('case completes without the optional memory', s.missions?.[1]?.status === 'active', s.missions?.[1]?.status);
-  check('optional garden memory still unheld', !(await hasMem('mem-garden-observance')));
-
-  /* ---- 12. the optional side investigation ----------------------------- */
-  const clerk = byId('src-glassline-clerk');
-  await tp(clerk.x + 1.5, clerk.z + 1.5);
-  ok = await openDialogue(/Talk to the night clerk/);
-  if (ok) {
-    await choose(0); // the vigil question
-    const d = await dlg();
-    check('clerk points at the observance', /vigil|eleven/i.test(d.body || ''), (d.body || '').slice(0, 44));
-    await closeDlg();
-  }
-  await ev(() => window.__MT_GLOVE_CD__(0));
-  const plaque = byId('src-garden-plaque');
-  await tp(plaque.x + 1.5, plaque.z + 1.5);
-  const plaquePrompt = await waitPrompt((t) => /Extract memory/.test(t), 30000);
-  check('plaque offers the optional memory', /Extract/.test(plaquePrompt), plaquePrompt || '(none)');
-  if (/Extract memory/.test(plaquePrompt)) await press('KeyE');
-  const sideHeld = await until(() => hasMem('mem-garden-observance'), (h) => h, 40000);
-  check('optional memory recorded', sideHeld);
-  await closeJournal(); // a finished reading opens the journal
-  s = await story();
-  check('side mission completes once its work is done', s.missions?.[1]?.status === 'complete', s.missions?.[1]?.status);
-  check('eleven-names evidence filed', !!s.evidence.find((e) => e.id === 'ev-eleven-names'));
-
-  /* ---- 13. the journal remembers everything ---------------------------- */
-  await ev(() => {
-    window.__MT_JOURNAL__(true);
-    window.__MT_CASE__('case');
-  });
-  await sleep(400);
-  c = await ev(() => window.__MT_CASE__());
-  check('case file lists every finding (9 entries)', (c.evidence || []).length === 9, String((c.evidence || []).length));
-  check('case file shows the discrepancy note', c.discrepancy === true);
-  check('case file: both missions complete', c.missions?.length === 2, JSON.stringify(c.missions));
-  await page.evaluate(() => document.querySelector('.case-ev')?.click());
-  await sleep(300);
-  c = await ev(() => window.__MT_CASE__());
-  check('evidence expands with its full body', !!c.expandedBody && c.expandedBody.length > 40, (c.expandedBody || '').slice(0, 40));
-  await closeJournal();
-  await shot(page, warnings, '16-story-case-complete.png');
-
-  /* ---- 14. the case survives a reload ---------------------------------- */
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.waitForFunction('window.__MT_READY__ === true', { timeout: 300000 });
-  await sleep(1500);
-  // a fresh load greets the player again — the title screen is deliberate
-  const greetedAgain = await page.evaluate(() => (typeof window.__MT_WELCOME__ === 'function' ? window.__MT_WELCOME__() : 'missing'));
-  check('welcome greets again after a fresh load', greetedAgain === true, String(greetedAgain));
-  const dismissedAgain = await dismissWelcome(page);
-  check('the walk resumes after the welcome', dismissedAgain === false, String(dismissedAgain));
-  s = await story();
-  check('after reload: main still complete', s.missions?.[0]?.status === 'complete', s.missions?.[0]?.status);
-  check('after reload: evidence preserved', (s.evidence || []).length === 9, String((s.evidence || []).length));
-  check('after reload: side still complete', s.missions?.[1]?.status === 'complete', s.missions?.[1]?.status);
-
-  /* ---- 15. choice B: the retainer path (converging endings) ------------ */
-  await ev(() => window.__MT_STORY_RESET__());
-  await sleep(500);
-  s = await story();
-  check('story reset: case fresh again', s.missions?.[0]?.status === 'active' && (s.evidence || []).length === 0);
-  const tpos2 = await ev((id) => window.__MT_STORY_POS__(id), 'tomas');
-  await tp(tpos2.x + 1.5, tpos2.z + 1.5);
-  ok = await openDialogue(/Talk to Tomas Venn/);
-  if (ok) {
-    await choose(1); // "What's in it for me?"
-    const d = await dlg();
-    check('choice B pays a retainer', /Fair|pay/i.test(d.body || ''), (d.body || '').slice(0, 44));
-    await closeDlg();
-  }
-  s = await story();
-  check('choice B: retainer evidence filed', !!s.evidence.find((e) => e.id === 'ev-retainer'));
-  check('choice B: route note withheld for now', !s.evidence.find((e) => e.id === 'ev-route'));
-
-  // the delayed consequence: one finding later, Tomas hands the note over
-  await tp(trader.x + 1.5, trader.z + 1.5);
-  ok = await openDialogue(/Talk to the night market trader/);
-  if (ok) {
-    await choose(0);
-    await closeDlg();
-  }
-  await tp(tpos2.x + 1.5, tpos2.z + 1.5);
-  ok = await openDialogue(/Talk to Tomas Venn/);
-  if (ok) {
-    const d = await dlg();
-    check('choice B: route note arrives after the first finding', /route note|wrote it down/i.test(d.body || ''), (d.body || '').slice(0, 50).replace(/\s+/g, ' '));
-    await closeDlg();
-  }
-  s = await story();
-  check('choice B: route-note flag finally granted', (s.flags || []).includes('route-note'));
-
-  // and the cage is locked again: no key, no gate
-  await tp(secret0.x + 0.1, secret0.z - 0.45);
-  const relockedPrompt = await waitPrompt((t) => /records cage/i.test(t), 30000);
-  check('cage prompts again after the reset', /records cage/i.test(relockedPrompt), relockedPrompt || '(none)');
-  if (/records cage/i.test(relockedPrompt)) await press('KeyE');
-  const relockedCard = await until(inspectBody, (b) => b.length > 0, 20000);
-  check('cage refuses without Tomas\'s key', /key|answered/i.test(relockedCard), relockedCard.slice(0, 56));
-  await press('Escape');
-
-  const passed = results.filter((r) => r.ok).length;
-  console.log(`[smoke] story checks: ${passed}/${results.length} passed`);
-  if (passed !== results.length) warnings.push(`${results.length - passed} story check(s) failed`);
-}
-
 /* ------------------------------------------------------------------ *
  * Phase 6 — UI screens, progression, save/load
  *
- * Runs after the story block on the same session. Nothing here may
+ * Runs after the city-life block on the same session. Nothing here may
  * reset the world except the two *deliberate* rebuilds (Load, New
  * game) — every menu round-trip asserts the generation counter and
  * the player position held still. Mouse input is exercised through
@@ -1584,7 +1127,6 @@ async function runProgressionTests(page, errors, warnings) {
   const map = (open) => ev((o) => window.__MT_MAP__(o), open);
   const gear = (open) => ev((o) => window.__MT_GEAR__(o), open);
   const pause = (open) => ev((o) => window.__MT_PAUSE__(o), open);
-  const storyView = () => ev(() => window.__MT_STORY__());
   const mem = () => ev(() => window.__MT_MEM__());
   const save = (op, text) => ev((o, t) => window.__MT_SAVE__(o, t), op ?? 'status', text ?? null);
   const buyClick = async (id) => {
@@ -1614,24 +1156,7 @@ async function runProgressionTests(page, errors, warnings) {
       30000,
     );
 
-  /* ---- 1. mission tracker on the HUD ---------------------------------- */
-  let sv = await storyView();
-  let tr = await ev(() => window.__MT_TRACKER__());
-  check('HUD tracker shows the active case', !!tr && tr.title === sv.missions?.[0]?.title, tr ? `${tr.kicker} · ${tr.title}` : 'missing');
-  check('tracker kicker reads CASE', tr?.kicker === 'CASE', tr?.kicker ?? '(none)');
-  check('tracker lists at least one objective', (tr?.lines ?? []).length >= 1, JSON.stringify(tr?.lines));
-  const liveObjectives = (sv.missions?.[0]?.objectives ?? []).filter((o) => o.visible && !o.done).map((o) => o.text);
-  const linesFromView = (tr?.lines ?? []).every((l) => liveObjectives.some((x) => l.includes(x)));
-  check('tracker lines come from live objectives', linesFromView, JSON.stringify(tr?.lines));
-  const sideStatus = sv.missions?.[1]?.status;
-  const sideShown = (tr?.side ?? '') !== '';
-  check(
-    'side-job line follows its mission status',
-    sideStatus === 'locked' ? !sideShown : sideShown,
-    `status=${sideStatus} line="${tr?.side ?? ''}"`,
-  );
-
-  /* ---- 2. the city map ------------------------------------------------ */
+  /* ---- 1. the city map ------------------------------------------------ */
   const genAtStart = await gen();
   const posBeforeMap = await pos();
   await press('KeyM');
@@ -1727,7 +1252,7 @@ async function runProgressionTests(page, errors, warnings) {
   check('map round-trip leaves the player and world untouched',
     (await gen()) === genAtStart && posStable, `gen ${genAtStart}→${await gen()}, chartedTp=${chartedTp}`);
 
-  /* ---- 2b. the corner mini-map ---------------------------------------- */
+  /* ---- 1b. the corner mini-map ---------------------------------------- */
   let mm = await until(() => ev(() => window.__MT_MINIMAP__()), (x) => x.visible === true, 20000);
   check('mini-map is on screen in play mode', mm.visible === true, JSON.stringify(mm));
   check('mini-map canvas is a usable size', (mm.size ?? 0) >= 120, String(mm.size));
@@ -1762,7 +1287,7 @@ async function runProgressionTests(page, errors, warnings) {
   mm = await until(() => ev(() => window.__MT_MINIMAP__()), (x) => x.visible === true, 20000);
   check('mini-map returns when the map closes', mm.visible === true, String(mm.visible));
 
-  /* ---- 3. extraction noise recipe (before the upgrade) ---------------- */
+  /* ---- 2. extraction noise recipe (before the upgrade) ---------------- */
   const hide = (await ev(() => window.__MT_HIDE__()))[0];
   const spot = { x: hide.x - 4.7, z: hide.z }; // same open-road spot Phase 4 proved
   await tp(spot.x, spot.z);
@@ -1784,16 +1309,15 @@ async function runProgressionTests(page, errors, warnings) {
   const noiseBefore = await ev(() => window.__MT_EMIT__('extraction'));
   check('base extraction noise reaches 8 m', noiseBefore >= 1, `${noiseBefore} notified`);
 
-  /* ---- 4. equipment screen: motes, purchases, effects ----------------- */
+  /* ---- 3. equipment screen: motes, purchases, effects ----------------- */
   await press('KeyI');
   let gr = await until(gear, (x) => x.open, 12000);
   check('I opens the equipment screen', gr.open);
   const m0 = await mem();
-  const s0 = await storyView();
   const reconstructed = m0.collected.filter((c) => c.reconstructed).length;
-  const expectedMotes = reconstructed * 3 + (s0.evidence ?? []).length;
+  const expectedMotes = reconstructed * 4;
   check('motes income matches the work done', gr.motes?.earned === expectedMotes,
-    `${gr.motes?.earned} vs ${reconstructed}×3 + ${s0.evidence?.length} evidence = ${expectedMotes}`);
+    `${gr.motes?.earned} vs ${reconstructed}×4 = ${expectedMotes}`);
   check('four upgrade cards with buy buttons', (gr.buyDisabled ?? []).length === 4, `${gr.buyDisabled?.length}`);
 
   await buyClick('muffled-channel');
@@ -1814,7 +1338,7 @@ async function runProgressionTests(page, errors, warnings) {
   check('equipment shows the upgraded stat row', (gr.statUpgraded ?? []).includes('0.91 s'),
     JSON.stringify(gr.statUpgraded));
 
-  /* ---- 5. KEEN LENS: replay range before and after -------------------- */
+  /* ---- 4. KEEN LENS: replay range before and after -------------------- */
   const srcs = await ev(() => window.__MT_SOURCES__());
   const fragId = m0.collected.find((c) => c.reconstructed)?.id ?? m0.collected[0]?.id;
   const site = srcs.find((s) => s.fragmentId === fragId);
@@ -1841,7 +1365,7 @@ async function runProgressionTests(page, errors, warnings) {
     check('range probe replay cancelled cleanly', off.active === false);
   } else check('range probe replay cancelled cleanly', false, 'replay never started');
 
-  /* ---- 6. the fourth upgrade obeys the mote economy ------------------- */
+  /* ---- 5. the fourth upgrade obeys the mote economy ------------------- */
   await press('KeyI');
   gr = await until(gear, (x) => x.open, 12000);
   const canFourth = gr.motes.available >= 5;
@@ -1866,7 +1390,7 @@ async function runProgressionTests(page, errors, warnings) {
     (await gen()) === genAtStart && Math.abs(posAfterGearClose.x - posBeforeGearClose.x) <= 2,
     `gen ${genAtStart}→${await gen()}`);
 
-  /* ---- 7. pause menu: actions, settings, resume ----------------------- */
+  /* ---- 6. pause menu: actions, settings, resume ----------------------- */
   await press('Escape');
   let ps = await until(pause, (x) => x.open, 12000);
   check('Esc opens the pause menu', ps.open);
@@ -1905,13 +1429,12 @@ async function runProgressionTests(page, errors, warnings) {
   ps = await until(pause, (x) => !x.open, 12000);
   check('P closes the pause menu', !ps.open);
 
-  /* ---- 8. save / load / refuse corrupted checkpoints ------------------ */
+  /* ---- 7. save / load / refuse corrupted checkpoints ------------------ */
   await tp(spot.x, spot.z); // back to the open-road position A
   // the player hook only advances on a rendered frame — under SwiftShader that
   // can take seconds, so wait until the teleport has actually landed before
   // trusting it as "position A".
   const posA = await until(pos, (p) => Math.abs(p.x - spot.x) <= 2 && Math.abs(p.z - spot.z) <= 2, 30000);
-  const evidenceAtSave = ((await storyView()).evidence ?? []).length;
   const memCountAtSave = (await mem()).count;
   await press('Escape');
   ps = await until(pause, (x) => x.open, 12000);
@@ -1925,7 +1448,7 @@ async function runProgressionTests(page, errors, warnings) {
   let doc = null;
   try { doc = JSON.parse(raw); } catch { doc = null; }
   check('checkpoint carries every progress system',
-    !!doc && doc.v === 1 && !!doc.player && !!doc.memories && !!doc.story && !!doc.discovery && !!doc.progression && typeof doc.seed === 'string',
+    !!doc && doc.v === 1 && !!doc.player && !!doc.memories && !!doc.discovery && !!doc.progression && typeof doc.seed === 'string',
     raw ? `${raw.length} bytes` : 'missing');
   check('checkpoint records the player position',
     !!doc && Math.abs(doc.player.x - posA.x) <= 2 && Math.abs(doc.player.z - posA.z) <= 2,
@@ -1935,11 +1458,10 @@ async function runProgressionTests(page, errors, warnings) {
 
   await save('write', 'not json {{{');
   const bad1 = await save('load');
-  const untouched1 = await storyView();
   check('corrupt checkpoint is refused safely', bad1.status === 'corrupt', String(bad1.status));
-  check('refused load leaves the case untouched',
-    (untouched1.evidence ?? []).length === evidenceAtSave && (await mem()).count === memCountAtSave,
-    `${untouched1.evidence?.length} evidence / ${(await mem()).count} memories`);
+  check('refused load leaves the memories you hold',
+    (await mem()).count === memCountAtSave,
+    `${(await mem()).count} memories`);
   await save('write', '{"v":0}');
   const bad2 = await save('load');
   check('outdated checkpoint version is refused', bad2.status === 'outdated', String(bad2.status));
@@ -1959,9 +1481,6 @@ async function runProgressionTests(page, errors, warnings) {
   check('Load restores the saved position',
     Math.abs(backAtA.x - posA.x) <= 2 && Math.abs(backAtA.z - posA.z) <= 2,
     `${backAtA.x},${backAtA.z} vs ${posA.x},${posA.z}`);
-  const svAfter = await until(storyView, (s) => (s.evidence ?? []).length === evidenceAtSave, 60000);
-  check('Load restores the case evidence', svAfter.evidence?.length === evidenceAtSave,
-    `${svAfter.evidence?.length} of ${evidenceAtSave}`);
   check('Load keeps the memories you hold', (await mem()).count === memCountAtSave, String(memCountAtSave));
   const genAfterLoad = await until(gen, (g) => g === genBeforeLoad + 1, 150000);
   check('Load rebuilds the world deliberately, exactly once',
@@ -1971,13 +1490,8 @@ async function runProgressionTests(page, errors, warnings) {
   check('same seed and city after the load',
     (statsAfter?.world?.cells ?? 0) > 0 && doc?.seed === seedNow,
     `${statsAfter?.world?.cells} cells · seed ${seedNow}`);
-  const trackerAfterLoad = await ev(() => window.__MT_TRACKER__());
-  const svLoad = await storyView();
-  check('tracker follows the loaded state',
-    !!trackerAfterLoad && trackerAfterLoad.title === svLoad.missions?.[0]?.title,
-    trackerAfterLoad?.title ?? '(none)');
 
-  /* ---- 9. accessibility options --------------------------------------- */
+  /* ---- 8. accessibility options --------------------------------------- */
   await press('Escape');
   await until(pause, (x) => x.open, 12000);
   await page.click('#pause-settings');
@@ -2021,11 +1535,10 @@ async function runProgressionTests(page, errors, warnings) {
   await page.click('#panel-close');
   await sleep(500);
 
-  /* ---- 10. new game: confirm, cancel, erase --------------------------- */
+  /* ---- 9. new game: confirm, cancel, erase --------------------------- */
   await press('Escape');
   ps = await until(pause, (x) => x.open, 12000);
   const genBeforeNew = await gen();
-  const evidenceBeforeNew = ((await storyView()).evidence ?? []).length;
   await page.click('#pause-new');
   await sleep(500);
   ps = await ev(() => window.__MT_PAUSE__());
@@ -2034,29 +1547,20 @@ async function runProgressionTests(page, errors, warnings) {
   await page.click('#pause-confirm-cancel');
   await sleep(450);
   ps = await ev(() => window.__MT_PAUSE__());
-  const svAfterCancel = await storyView();
-  check('cancelling keeps the save, case and world',
-    ps.confirmVisible === false &&
-      (svAfterCancel.evidence ?? []).length === evidenceBeforeNew &&
-      (await gen()) === genBeforeNew,
-    `${svAfterCancel.evidence?.length} evidence · gen ${genBeforeNew}`);
+  check('cancelling keeps the save and the world',
+    ps.confirmVisible === false && (await gen()) === genBeforeNew,
+    `gen ${genBeforeNew}`);
   await page.click('#pause-new');
   await sleep(450);
   await page.click('#pause-confirm-accept');
   const fresh = await until(
-    () => Promise.all([mem(), storyView(), gen(), save('status')]),
-    ([m, s, g, st]) => m.count === 0 && (s.flags ?? []).length === 0 && g === genBeforeNew + 1 && st.status === 'missing',
+    () => Promise.all([mem(), gen(), save('status')]),
+    ([m, g, st]) => m.count === 0 && g === genBeforeNew + 1 && st.status === 'missing',
     150000,
   );
-  check('new game clears memories and the case', fresh[0].count === 0 && fresh[1].flags.length === 0,
-    `${fresh[0].count} memories / ${fresh[1].flags.length} flags`);
-  check('new game erases the saved checkpoint', fresh[3].status === 'missing', String(fresh[3].status));
-  check('new game rebuilds a fresh world once', fresh[2] === genBeforeNew + 1, `${genBeforeNew}→${fresh[2]}`);
-  const trackerFresh = await ev(() => window.__MT_TRACKER__());
-  const svFresh = await storyView();
-  check('fresh tracker points at the opening objective',
-    !!trackerFresh && trackerFresh.title === svFresh.missions?.[0]?.title && trackerFresh.lines.length >= 1,
-    JSON.stringify(trackerFresh?.lines ?? null));
+  check('new game clears the memories you hold', fresh[0].count === 0, `${fresh[0].count} memories`);
+  check('new game erases the saved checkpoint', fresh[2].status === 'missing', String(fresh[2].status));
+  check('new game rebuilds a fresh world once', fresh[1] === genBeforeNew + 1, `${genBeforeNew}→${fresh[1]}`);
   await press('KeyI');
   gr = await until(gear, (x) => x.open, 12000);
   check('no motes, no upgrades: every install is disabled and stats are stock',
@@ -2450,9 +1954,8 @@ async function main() {
     console.log('[smoke] city-life checks…');
     await runCityLifeTests(page, errors, warnings);
 
-    /* ---------------- Phase 5: story — the Venn case ---------------- */
-    console.log('[smoke] story checks…');
-    await runStoryTests(page, errors, warnings);
+    /* ---------------- Phase 6: UI screens + progression ---------------- */
+    console.log('[smoke] progression checks…');
     await runProgressionTests(page, errors, warnings);
 
     /* ---------------- Phase 7: visual / audio / performance ------------ */

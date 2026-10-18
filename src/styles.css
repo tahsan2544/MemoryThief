@@ -1299,288 +1299,9 @@ body.recon-stutter .grain { animation: recon-jitter 0.42s steps(2) infinite; }
   }
 }
 
-/* =====================================================================
-   PHASE 5 — dialogue card, journal case file
-   ===================================================================== */
-
-.dialogue {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 34;
-  width: min(560px, 88vw);
-  padding: 22px 24px 16px;
-  background: rgba(8, 12, 24, 0.95);
-  border: 1px solid var(--line);
-  border-top: 2px solid var(--amber);
-  backdrop-filter: blur(14px);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
-  transition: opacity 0.18s ease, transform 0.18s ease;
-}
-
-.dialogue.hidden {
-  opacity: 0;
-  pointer-events: none;
-  transform: translate(-50%, -46%);
-}
-
-.dialogue-kicker {
-  font-size: 9.5px;
-  letter-spacing: 0.34em;
-  color: var(--amber);
-  margin-bottom: 9px;
-}
-
-.dialogue-title {
-  font-size: 14px;
-  letter-spacing: 0.14em;
-  color: #fff4e6;
-  margin-bottom: 12px;
-}
-
-.dialogue-body {
-  font-size: 12.5px;
-  line-height: 1.75;
-  color: var(--ink);
-  opacity: 0.94;
-  white-space: pre-line;
-}
-
-.dialogue-choices {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.dialogue-choice {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  width: 100%;
-  text-align: left;
-  padding: 10px 12px;
-  background: rgba(42, 30, 12, 0.5);
-  border: 1px solid rgba(255, 166, 64, 0.3);
-  color: var(--ink);
-  font-family: var(--mono);
-  font-size: 12px;
-  line-height: 1.55;
-  cursor: pointer;
-}
-
-.dialogue-choice:hover {
-  border-color: var(--amber);
-  background: rgba(64, 44, 16, 0.6);
-}
-
-.dialogue-choice kbd {
-  flex: none;
-}
-
-.dialogue-hint {
-  margin-top: 14px;
-  padding-top: 11px;
-  border-top: 1px solid var(--line);
-  font-size: 10.5px;
-  letter-spacing: 0.1em;
-  color: var(--ink-dim);
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-/* --------------------------- journal case file --------------------------- */
-
-.journal-tabs {
-  display: flex;
-  gap: 6px;
-}
-
-.journal-tab {
-  padding: 5px 12px;
-  background: none;
-  border: 1px solid var(--line);
-  color: var(--ink-dim);
-  font-family: var(--mono);
-  font-size: 9.5px;
-  letter-spacing: 0.18em;
-  cursor: pointer;
-}
-
-.journal-tab:hover {
-  color: #fff;
-}
-
-.journal-tab.selected {
-  border-color: var(--amber);
-  color: var(--amber);
-  background: rgba(64, 44, 16, 0.35);
-}
-
-.case-mission {
-  background: rgba(20, 28, 50, 0.4);
-  border: 1px solid var(--line);
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.case-mission.complete {
-  border-color: rgba(100, 217, 138, 0.45);
-}
-
-.case-mission.locked {
-  opacity: 0.6;
-}
-
-.case-mission-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.case-mission-title {
-  font-size: 11.5px;
-  letter-spacing: 0.14em;
-  color: #f2f6ff;
-}
-
-.case-mission-kind {
-  font-size: 8.5px;
-  letter-spacing: 0.16em;
-  color: var(--amber);
-}
-
-.case-mission.complete .case-mission-kind {
-  color: var(--green);
-}
-
-.case-mission.locked .case-mission-kind {
-  color: var(--ink-dim);
-}
-
-.case-mission-log {
-  font-size: 11px;
-  line-height: 1.6;
-  color: var(--ink-dim);
-}
-
-.case-objectives {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.case-obj {
-  display: flex;
-  gap: 8px;
-  font-size: 11.5px;
-  line-height: 1.5;
-  color: var(--ink);
-}
-
-.case-obj .obj-mark {
-  flex: none;
-  color: var(--ink-dim);
-}
-
-.case-obj.done .obj-mark {
-  color: var(--green);
-}
-
-.case-obj.done .obj-text {
-  color: var(--ink-dim);
-  text-decoration: line-through;
-  text-decoration-color: rgba(127, 141, 176, 0.6);
-}
-
-.case-obj .obj-hint {
-  display: block;
-  font-size: 9.5px;
-  letter-spacing: 0.06em;
-  color: var(--ink-dim);
-}
-
-.case-reward {
-  font-size: 9.5px;
-  letter-spacing: 0.1em;
-  color: var(--green);
-}
-
-.case-section-label {
-  font-size: 9px;
-  letter-spacing: 0.3em;
-  color: var(--amber);
-  margin-bottom: 4px;
-}
-
-.case-discrepancy {
-  border-left: 2px solid var(--amber);
-  padding: 8px 12px;
-  background: rgba(64, 44, 16, 0.3);
-  font-size: 11.5px;
-  line-height: 1.65;
-  color: #ffd9ab;
-}
-
-.case-ev-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.case-ev {
-  text-align: left;
-  background: rgba(20, 28, 50, 0.4);
-  border: 1px solid transparent;
-  color: var(--ink);
-  font-family: var(--mono);
-  padding: 9px 10px;
-  cursor: pointer;
-}
-
-.case-ev:hover {
-  border-color: rgba(255, 166, 64, 0.5);
-}
-
-.case-ev.open {
-  border-color: var(--amber);
-  background: rgba(64, 44, 16, 0.3);
-}
-
-.case-ev-title {
-  font-size: 11px;
-  letter-spacing: 0.06em;
-}
-
-.case-ev-tag {
-  float: right;
-  font-size: 8.5px;
-  letter-spacing: 0.16em;
-  color: var(--ink-dim);
-}
-
-.case-ev-body {
-  display: none;
-  margin-top: 8px;
-  font-size: 11.5px;
-  line-height: 1.7;
-  color: var(--ink);
-  opacity: 0.9;
-}
-
-.case-ev.open .case-ev-body {
-  display: block;
-}
-
 /* ===================================================================== *
    PHASE 6 — GAME UI & PROGRESSION
-   Interface scale token, accessibility modes, tracker, map, equipment
+   Interface scale token, accessibility modes, map, equipment
    and pause surfaces — all sharing the Phase 1–5 visual language.
  * ===================================================================== */
 
@@ -1594,19 +1315,11 @@ body.recon-stutter .grain { animation: recon-jitter 0.42s steps(2) infinite; }
   font-size: calc(11.5px * var(--ui-scale));
 }
 .inspect-title,
-.journal-title,
-.dialogue-title {
+.journal-title {
   font-size: calc(14px * var(--ui-scale));
 }
-.inspect-body,
-.dialogue-body {
+.inspect-body {
   font-size: calc(12.5px * var(--ui-scale));
-}
-.tracker-title {
-  font-size: calc(11.5px * var(--ui-scale));
-}
-.tracker-line {
-  font-size: calc(10.5px * var(--ui-scale));
 }
 .map-detail-body {
   font-size: calc(11px * var(--ui-scale));
@@ -1637,7 +1350,6 @@ body.high-contrast {
 }
 body.high-contrast .prompt,
 body.high-contrast .inspect,
-body.high-contrast .dialogue,
 body.high-contrast .journal,
 body.high-contrast .map-frame,
 body.high-contrast .gear-frame,
@@ -1646,59 +1358,6 @@ body.high-contrast .pause-card {
   box-shadow:
     0 0 0 1px rgba(235, 243, 255, 0.35),
     0 24px 70px rgba(0, 0, 0, 0.55);
-}
-
-/* ---------------------------- mission tracker ------------------------- */
-
-.tracker {
-  margin-top: 16px;
-  padding: 9px 12px 10px;
-  max-width: 44ch;
-  background: linear-gradient(180deg, rgba(10, 15, 30, 0.82), rgba(8, 12, 24, 0.6));
-  border: 1px solid var(--line);
-  border-left: 2px solid var(--amber);
-  backdrop-filter: blur(6px);
-}
-.tracker.hidden {
-  display: none;
-}
-.tracker-kicker {
-  font-size: 8.5px;
-  letter-spacing: 0.28em;
-  color: var(--amber);
-}
-.tracker-title {
-  letter-spacing: 0.18em;
-  color: #eef4ff;
-  margin-top: 3px;
-}
-.tracker-objs {
-  margin-top: 8px;
-  display: grid;
-  gap: 4px;
-}
-.tracker-line {
-  line-height: 1.5;
-  color: var(--ink);
-  opacity: 0.94;
-}
-.tracker-line.done {
-  color: var(--green);
-}
-.tracker-line.dim {
-  color: var(--ink-dim);
-  font-size: 9.5px;
-}
-.tracker-side {
-  margin-top: 8px;
-  padding-top: 7px;
-  border-top: 1px dashed var(--line);
-  font-size: 9.5px;
-  letter-spacing: 0.08em;
-  color: var(--teal);
-}
-.tracker-side.hidden {
-  display: none;
 }
 
 /* -------------------------------- city map ---------------------------- */
@@ -1856,10 +1515,6 @@ body.high-contrast .pause-card {
 .lg-reading {
   border: 2px solid var(--violet);
   border-radius: 50%;
-}
-.lg-case {
-  background: var(--amber);
-  transform: rotate(45deg);
 }
 .map-note {
   font-size: 10px;
@@ -2070,34 +1725,6 @@ body.high-contrast .pause-card {
   border-color: rgba(100, 217, 138, 0.5);
   color: var(--green);
   opacity: 1;
-}
-.gear-carried {
-  display: grid;
-  gap: 8px;
-}
-.gear-carried-item {
-  border: 1px solid rgba(255, 166, 64, 0.35);
-  background: rgba(40, 28, 12, 0.28);
-  padding: 9px 10px;
-  display: grid;
-  gap: 4px;
-}
-.gear-carried-item b {
-  font-size: 10.5px;
-  letter-spacing: 0.1em;
-  color: #ffe9c9;
-}
-.gear-carried-item span {
-  font-size: 9.5px;
-  line-height: 1.55;
-  color: var(--ink-dim);
-}
-.gear-empty {
-  font-size: 10.5px;
-  color: var(--ink-dim);
-  line-height: 1.6;
-  border: 1px dashed rgba(120, 150, 220, 0.3);
-  padding: 12px;
 }
 .gear-hint {
   padding: 10px 20px;

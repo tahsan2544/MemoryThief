@@ -7,7 +7,7 @@
  *     Phase 2 interactables (valve, tower directory, garden plaque);
  *   - NPC sources: bystander figures standing beside their anchors — the
  *     station attendant, the market trader, the archive warden — plus one
- *     dialogue-only figure, the Glassline night clerk;
+ *     scenery figure, the Glassline night clerk;
  *   - the hidden Floodworks service annex: a small metal room stood flush
  *     against a real building face found by probing the collider list, with
  *     a barred door that opens once its memory has been reconstructed;
@@ -142,7 +142,7 @@ export function buildMemorySites({ layout, colliders, interactables, root }) {
     },
     {
       id: 'src-glassline-clerk',
-      fragmentId: null, // dialogue NPC only — the tower fragment's consequence
+      fragmentId: null, // scenery NPC — carries no fragment of their own
       name: 'Night clerk',
       anchor: 'tower-directory',
       dx: 3.1,
@@ -257,9 +257,8 @@ export function buildMemorySites({ layout, colliders, interactables, root }) {
         title: 'FLOODWORKS SERVICE ANNEX — UNLISTED COFFER',
         body:
           'Ward-issue, archive-sealed, and warm. Inside: a coil sleeve stamped ' +
-          'with floor 40, a red conservatory thread, and a ledger page that ' +
-          'lists the attendant, the trader and the warden — paid, all three, ' +
-          'on the night of the sealing.',
+          'with floor 40, a red conservatory thread, and a ledger page where ' +
+          'three payments sit against names that were never written down.',
       }
     : null;
 
@@ -273,7 +272,6 @@ export function buildMemorySites({ layout, colliders, interactables, root }) {
     npcs,
     door,
     cache,
-    cage: door?.cage ?? null, // Phase 5 records cage (inside the annex)
 
     sourceById(id) {
       return sources.find((src) => src.id === id) ?? null;
@@ -312,11 +310,10 @@ export function buildMemorySites({ layout, colliders, interactables, root }) {
       return echoes.children.length;
     },
 
-    /** Door + cage + NPC + marker animation. */
+    /** Door + NPC + marker animation. */
     update(dt, t, playerPos) {
       time = t ?? time + dt;
       door?.update(dt);
-      door?.cage?.update(dt);
       for (const npc of npcs) npc.update(dt, time, playerPos ?? null);
       for (const m of markers) {
         if (!m.mesh.visible) continue;
@@ -469,12 +466,6 @@ function buildAnnex({ x, z, wall }, { colliders, base, W, D, H }) {
   cacheLight.position.set(x, base + 1.4, z + 0.95);
   group.add(cacheLight);
 
-  // ---- records cage (Phase 5's locked location) --------------------------
-  // Back-left compartment of the annex: barred by a gate that only Mira's
-  // key (a mission reward) drops. Additive geometry — the coffer, the door
-  // and every Phase 3 check that walks this room keep their exact world.
-  const cage = buildRecordsCage({ x, z, W, base, colliders, group });
-
   // ---- floating locator diamond (lights up with the seam) ----------------
   const diamond = new THREE.Mesh(s.diamond, s.marker.clone());
   diamond.position.set(x, base + 3.5, zf + 0.9);
@@ -499,7 +490,6 @@ function buildAnnex({ x, z, wall }, { colliders, base, W, D, H }) {
     x,
     z: zf, // the door plane (front face, toward the canal)
     wallPlaced: wall,
-    cage, // Phase 5's locked compartment, inside the same room
 
     /** Passable as soon as the bar drops — the panel may still be sinking. */
     isOpen() {
@@ -546,156 +536,10 @@ function buildAnnex({ x, z, wall }, { colliders, base, W, D, H }) {
       seamMat.dispose();
       panelMat.dispose();
       diamond.material.dispose();
-      cage.dispose();
       group.clear();
     },
   };
   return door;
-}
-
-/* --------------------------- the records cage ---------------------------- */
-
-/**
- * Phase 5's locked location: a barred compartment in the annex's back-left
- * corner. The gate collider drops only when the mission's key turns (main.js
- * owns the condition), and the work box behind it becomes readable then too.
- *
- * Interact points are chosen so the cage and the Phase 3 coffer never fight
- * for the prompt: the lock sits at the gate's south corner (front of the
- * room), the box sits inside the cage, and the coffer keeps the centre.
- */
-function buildRecordsCage({ x, z, W, base, colliders, group }) {
-  const s = shared();
-  const cx0 = x - W + 0.16; // inner face of the annex's left wall
-  const cx1 = x - 0.5; // gate plane (opening faces east, into the room)
-  const cz0 = z + 0.15; // off the annex back wall
-  const cz1 = z + 1.25; // south face, with its doorway-blocking wall
-  const Hc = 1.9;
-
-  // south wall + top rail close the compartment; west/back are annex walls
-  group.add(box(s.metal, cx0, base, cz1, cx1, base + Hc, cz1 + 0.1));
-  group.add(box(s.trim, cx0, base + Hc, cz0, cx1, base + Hc + 0.12, cz1 + 0.12));
-
-  // the gate: a solid panel that sinks like the annex door does
-  const gateMat = new THREE.MeshStandardMaterial({
-    color: 0x141a28,
-    roughness: 0.5,
-    metalness: 0.7,
-    transparent: true,
-  });
-  const gate = new THREE.Mesh(s.box, gateMat);
-  gate.position.set(cx1, base + Hc / 2, (cz0 + cz1) / 2);
-  gate.scale.set(0.08, Hc, cz1 - cz0);
-  gate.castShadow = true;
-  group.add(gate);
-
-  // lock seam: violet while it holds, gone once the key turns
-  const seamMat = new THREE.MeshBasicMaterial({
-    color: VIOLET,
-    transparent: true,
-    opacity: 0.4,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  });
-  const seam = new THREE.Mesh(s.box, seamMat);
-  seam.position.set(cx1 + 0.05, base + 1.0, (cz0 + cz1) / 2);
-  seam.scale.set(0.02, 1.5, 0.5);
-  group.add(seam);
-
-  // Mira's work box on a low bracket inside the cage
-  group.add(box(s.trim, cx0 + 0.18, base, cz0 + 0.28, cx0 + 0.74, base + 0.4, cz0 + 0.78));
-  const boxMat = new THREE.MeshStandardMaterial({
-    color: 0x1a1430,
-    emissive: VIOLET,
-    emissiveIntensity: 0.35,
-    roughness: 0.45,
-  });
-  const workBox = new THREE.Mesh(s.box, boxMat);
-  workBox.position.set(cx0 + 0.46, base + 0.53, cz0 + 0.53);
-  workBox.scale.set(0.4, 0.26, 0.3);
-  workBox.castShadow = true;
-  group.add(workBox);
-
-  // solids: the gate (togglable) and the south wall (permanent)
-  const gateCollider = colliders.addBox(cx1 - 0.05, cz0, cx1 + 0.05, cz1, base, base + Hc, 'records-cage');
-  colliders.addBox(cx0, cz1, cx1, cz1 + 0.1, base, base + Hc, 'records-cage');
-
-  let open = false;
-  let opening = false;
-  let openT = 0;
-  const SINK = Hc + 0.5;
-  const OPEN_SECONDS = 1.0;
-
-  const cage = {
-    x: cx1,
-    z: cz1,
-    isOpen() {
-      return open || opening;
-    },
-    open({ instant = false } = {}) {
-      if (open || opening) return false;
-      opening = true;
-      colliders.disable(gateCollider);
-      if (instant) {
-        openT = OPEN_SECONDS;
-        gate.position.y = base + Hc / 2 - SINK;
-        gateMat.opacity = 0;
-        gate.visible = false;
-        seamMat.opacity = 0;
-        opening = false;
-        open = true;
-      }
-      return true;
-    },
-
-    update(dt) {
-      if (!opening) return;
-      openT = Math.min(OPEN_SECONDS, openT + dt);
-      const k = openT / OPEN_SECONDS;
-      const eased = 1 - (1 - k) * (1 - k);
-      gate.position.y = base + Hc / 2 - eased * SINK;
-      gateMat.opacity = 1 - k;
-      seamMat.opacity = 0.4 * (1 - k);
-      if (openT >= OPEN_SECONDS) {
-        opening = false;
-        open = true;
-        gate.visible = false;
-      }
-    },
-
-    /** Prompt/read-out records; main.js decides when they enter the world. */
-    interact: {
-      id: 'records-cage',
-      kind: 'door',
-      x: cx1,
-      y: base,
-      z: cz1,
-      radius: 1.4,
-      label: 'Open the records cage',
-      title: 'FLOODWORKS ANNEX — RECORDS CAGE',
-      body:
-        'Barred shutters, ward-sealed, and warm to the touch. The lock takes ' +
-        'a key, not a glove.',
-    },
-    workBox: {
-      id: 'mira-workbox',
-      kind: 'note',
-      x: cx0 + 0.46,
-      y: base,
-      z: cz0 + 0.53,
-      radius: 1.4,
-      label: 'Open Mira’s work box',
-      title: 'RECORDS CAGE — MIRA’S WORK BOX',
-      body: 'The box Tomas described. It opens on the key you are already holding.',
-    },
-
-    dispose() {
-      gateMat.dispose();
-      seamMat.dispose();
-      boxMat.dispose();
-    },
-  };
-  return cage;
 }
 
 /* ----------------------------- proximity -------------------------------- */

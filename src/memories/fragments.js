@@ -31,10 +31,9 @@ export const FRAGMENTS = [
     effect: 'shimmer',
     tint: 0x8fb6ff,
     recorded:
-      'Rain on hot metal. A hand — not Riven’s, not the gloved hand from the ' +
-      'other fragments — turns the override wheel while the canal lamps are ' +
-      'still burning. The water comes up the walkway in four minutes, and the ' +
-      'lamps never go out. Someone wanted the flood lit.',
+      'Rain on hot metal. A hand — not the recorder’s — turns the override ' +
+      'wheel while the canal lamps are still burning. The water comes up the ' +
+      'walkway in four minutes, and the lamps never go out.',
     clues: [
       'The wheel was turned from the north walkway, against its cemented position.',
       'A second set of handprints dries on the rail — smaller, deliberate.',
@@ -92,7 +91,7 @@ export const FRAGMENTS = [
       'it, and still watched the figure wait.',
     clues: [
       'The departure board read 23:40 during the three-second glance.',
-      'The figure’s coat was wet from the flood, not the rain.',
+      'The figure’s coat was soaked through — standing water, not rain.',
       'The attendant’s memory holds no train, no announcement, no other passengers.',
     ],
     reliability: 'suspect',
@@ -102,8 +101,8 @@ export const FRAGMENTS = [
     contradiction: {
       with: 'mem-archive-seal',
       detail:
-        'Both fragments fix an event at 23:40: the attendant sees the figure ' +
-        'on the platform, the warden seals the archive around someone inside. ' +
+        'Both fragments fix an event at 23:40: the attendant sees a figure ' +
+        'on the platform, the warden seals the archive for the night. ' +
         'One of these memories has the wrong minute — or the right one.',
     },
     reconstruction: {
@@ -150,9 +149,9 @@ export const FRAGMENTS = [
     tint: 0xffb46b,
     recorded:
       'A stall, late. A memory coil changes hands twice in the same minute ' +
-      'for the same price, to the same buyer. The trader’s own hand comes up ' +
-      'to take the second payment — and the hand is Riven’s gloved hand, ' +
-      'rewritten into the memory where it does not belong.',
+      'for the same price, to the same buyer. A violet-gloved hand comes up ' +
+      'to take the second payment — and it belongs to no one standing at the ' +
+      'stall.',
     clues: [
       'The coil was sold twice: one sale recorded, one sale hidden.',
       'A violet-gloved hand appears in the trader’s memory but not in the stall.',
@@ -161,7 +160,7 @@ export const FRAGMENTS = [
     reliability: 'manipulated',
     reliabilityNote:
       'This memory has been edited, badly and recently. The gloved hand was ' +
-      'pasted in to implicate Riven — which means someone expected this ' +
+      'pasted in to point at someone — which means someone expected this ' +
       'fragment to be found.',
     contradiction: null,
     reconstruction: {
@@ -171,7 +170,7 @@ export const FRAGMENTS = [
       reveal:
         'Play it back and the paste-work shows: the trader’s hands sell the ' +
         'coil once. The second sale is a projection thrown from a hooded ' +
-        'figure across the stall — and the figure is copying Riven’s glove, ' +
+        'figure across the stall — and the figure is copying the gloved hand, ' +
         'frame by frame, badly.',
       actors: [
         { dx: 0.2, dz: -2.8, yaw: 0.1, pose: 'still', tint: 0xffcf9a },
@@ -183,22 +182,7 @@ export const FRAGMENTS = [
         { dx: 0, dz: -3.6, w: 3.6, h: 0.1, y: 2.4, tint: 0xff9a4d, opacity: 0.16 },
       ],
     },
-    consequences: [
-      {
-        kind: 'dialogue',
-        target: 'src-market-trader',
-        note:
-          'The trader will talk about the second sale — carefully, and with ' +
-          'the stall shutter down.',
-        line:
-          '"You saw it too, then." The trader weighs your glove, and decides ' +
-          'you are the wrong kind of trouble. "The second buyer never existed. ' +
-          'Someone pasted him in — same violet light as that hand of yours. ' +
-          'I sold one coil that night. Whoever bought it twice is building ' +
-          'an alibi out of my memory." They name the price: ward scrip, dated ' +
-          'next month, the same note the archive pays its wardens in.',
-      },
-    ],
+    consequences: [],
   },
 
   /* ------------------------------------------------------------------ *
@@ -245,22 +229,7 @@ export const FRAGMENTS = [
         { dx: 0, dz: -4.0, w: 0.9, h: 2.2, y: 0, tint: 0x9fb0ff, opacity: 0.26 },
       ],
     },
-    consequences: [
-      {
-        kind: 'dialogue',
-        target: 'src-glassline-clerk',
-        note:
-          'The night clerk will admit what runs the lift — if you already ' +
-          'know to ask about floor 40.',
-        line:
-          'The clerk checks the empty lobby twice before answering. "Floor 40 ' +
-          'is not a floor, it is a *shelf*." The lift serves the archive, they ' +
-          'say — the Underarchive logs its sealed memories as freight, and ' +
-          'Palisade Tower is the freight entrance. "Every night at 23:40 it ' +
-          'goes up empty and comes back down full. I stopped asking what ' +
-          'carries it." They will not say how they know the minute.',
-      },
-    ],
+    consequences: [],
   },
 
   /* ------------------------------------------------------------------ *
@@ -296,8 +265,7 @@ export const FRAGMENTS = [
       fog: { color: 0x14321f, density: 0.002 },
       reveal:
         'The gardener lifts a sealed coffer from the turned soil. Under the ' +
-        'dome glass, for one frame, their reflection has no face at all — ' +
-        'and the coffer is stamped with the archive seal.',
+        'dome glass, for one frame, their reflection has no face at all.',
       actors: [
         { dx: 0.3, dz: -1.8, yaw: 2.9, pose: 'reach', tint: 0xc8f5d8 },
         { dx: -1.4, dz: -2.4, yaw: 1.4, pose: 'still', tint: 0x6fae86 },
@@ -333,7 +301,7 @@ export const FRAGMENTS = [
       'The warden turns the archive lock twice. A count comes from inside ' +
       'the sealed dark — patient, unhurried, matching each turn of the key. ' +
       'The warden’s own face has been scrubbed out of the memory, not by ' +
-      'Riven’s glove: by the archive itself.',
+      'any glove: by the archive itself.',
     clues: [
       'The lock was turned twice; a single turn seals the archive.',
       'The count came from inside, in time with the key.',
@@ -356,7 +324,7 @@ export const FRAGMENTS = [
       reveal:
         'The count is a person: seven turns in, a voice from inside says ' +
         '“nine, ten” — ahead of the key. Whatever is sealed in the ' +
-        'Underarchive is keeping its own time, and it knows the ending.',
+        'Underarchive keeps its own time, and it knows the ending.',
       actors: [
         { dx: 0.8, dz: -2.6, yaw: 3.0, pose: 'reach', tint: 0xff9aa6 },
         { dx: -0.4, dz: -6.2, yaw: 0.1, pose: 'still', tint: 0xb0404f },

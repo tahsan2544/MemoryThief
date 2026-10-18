@@ -47,7 +47,7 @@ function showConfirm(kind) {
   if (msg) {
     msg.textContent =
       kind === 'new'
-        ? 'New game erases the saved game — memories, the case, upgrades and your position. This cannot be undone.'
+        ? 'New game erases the saved game — memories, upgrades and your position. This cannot be undone.'
         : 'Erase the checkpoint?';
   }
   box.dataset.confirm = kind;

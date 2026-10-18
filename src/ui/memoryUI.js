@@ -30,31 +30,12 @@ let selectedId = null;
 let open = false;
 let lastManager = null;
 let siteRangeCache = null; // { fragmentId, inRange, sourceName }
-let callbacks = { onActivate: null, onDeduce: null, onSelect: null, getStory: null };
-
-/* ---- Phase 5: the CASE FILE tab (missions + evidence) ------------------ */
-let tab = 'fragments'; // 'fragments' | 'case'
-let expandedEvidence = null; // dossier entry id currently read open
+let callbacks = { onActivate: null, onDeduce: null, onSelect: null };
 
 export function initMemoryUI(cbs = {}) {
   callbacks = { ...callbacks, ...cbs };
   get('journal-close')?.addEventListener('click', () => closeJournal());
-  get('tab-fragments')?.addEventListener('click', () => setJournalTab('fragments'));
-  get('tab-case')?.addEventListener('click', () => setJournalTab('case'));
   return { closeJournal };
-}
-
-/** Switch tabs (re-renders when the journal is open). */
-export function setJournalTab(name) {
-  tab = name === 'case' ? 'case' : 'fragments';
-  document.getElementById('tab-case')?.classList.toggle('selected', tab === 'case');
-  document.getElementById('tab-fragments')?.classList.toggle('selected', tab === 'fragments');
-  if (open && lastManager) renderJournal(lastManager, { siteRange: siteRangeCache });
-  return tab;
-}
-
-export function journalTab() {
-  return tab;
 }
 
 /**
@@ -107,19 +88,9 @@ export function journalSelect(id, manager) {
   callbacks.onSelect?.(id);
 }
 
-/** ↑/↓ select, Enter activates, 1/2 weigh a contradiction, C switches tab. */
+/** ↑/↓ select, Enter activates, 1/2 weigh a contradiction. */
 export function journalHandleKey(code, manager) {
   if (!open) return false;
-  // the case file has no fragment operations: C flips back, everything else
-  // is swallowed so Enter can never start a reconstruction from this tab
-  if (tab === 'case') {
-    if (code === 'KeyC') setJournalTab('fragments');
-    return true;
-  }
-  if (code === 'KeyC') {
-    setJournalTab('case');
-    return true;
-  }
   const list = manager.list();
   if (!list.length) return code === 'Enter'; // swallow Enter in the empty state
   const idx = Math.max(0, list.findIndex((f) => f.id === selectedId));
@@ -159,12 +130,6 @@ export function renderJournal(manager, opts = {}) {
   const detailEl = get('journal-detail');
   const countEl = get('journal-count');
   if (!listEl || !detailEl) return;
-
-  // ---- Phase 5: the CASE FILE tab owns both panes -----------------------
-  if (tab === 'case') {
-    renderCase(listEl, detailEl, countEl);
-    return;
-  }
 
   const list = manager.list();
   if (countEl) countEl.textContent = `${manager.count()} / ${manager.total()}`;
@@ -267,8 +232,8 @@ export function renderJournal(manager, opts = {}) {
     const note = document.createElement('div');
     note.className = 'con-note';
     note.textContent = manager.getDeduction(pair.id)
-      ? 'Deduction recorded. The journal keeps your read — the glove keeps the evidence.'
-      : 'Weigh the evidence: tag the record you distrust. Neither memory is proof.';
+      ? 'Deduction recorded. The journal keeps your read of it.'
+      : 'Weigh the accounts: tag the record you distrust. Neither memory is proof.';
     box.appendChild(note);
   }
 
@@ -308,118 +273,6 @@ export function renderJournal(manager, opts = {}) {
     ? 'Replays are free; consequences fire only the first time.'
     : 'Consequences (doors, clues, abilities) apply when the memory plays at its site.';
   recon.appendChild(reconNote);
-}
-
-/* ------------------------- Phase 5: case file --------------------------- */
-
-/**
- * The mission journal: active missions with their objective checklist, and
- * the evidence dossier with every entry reopenable. Data comes from the
- * mission manager's view model (via initMemoryUI's getStory), so this panel
- * never computes story truth itself.
- */
-function renderCase(listEl, detailEl, countEl) {
-  const story = callbacks.getStory?.() ?? null;
-  listEl.innerHTML = '';
-  detailEl.innerHTML = '';
-
-  if (!story) {
-    listEl.innerHTML = '<div class="journal-empty">No open case.</div>';
-    return;
-  }
-  if (countEl) countEl.textContent = `${story.evidence.length} EVIDENCE`;
-
-  // ---- missions -----------------------------------------------------------
-  for (const m of story.missions) {
-    const block = document.createElement('div');
-    block.className = `case-mission ${m.status}`;
-    block.dataset.mission = m.id;
-
-    const head = document.createElement('div');
-    head.className = 'case-mission-head';
-    head.innerHTML =
-      `<span class="case-mission-title">${escapeHtml(m.title)}</span>` +
-      `<span class="case-mission-kind">${m.kind === 'main' ? 'MAIN' : 'SIDE'} · ` +
-      `${m.status === 'complete' ? 'COMPLETE' : m.status === 'active' ? 'ACTIVE' : 'LOCKED'}</span>`;
-    block.appendChild(head);
-
-    const log = document.createElement('div');
-    log.className = 'case-mission-log';
-    log.textContent = m.status === 'locked' ? `Locked — ${m.start}` : m.log;
-    block.appendChild(log);
-
-    const ul = document.createElement('ul');
-    ul.className = 'case-objectives';
-    const shown = m.objectives.filter((o) => o.visible);
-    for (const o of shown) {
-      const li = document.createElement('li');
-      li.className = 'case-obj' + (o.done ? ' done' : '');
-      li.dataset.objective = o.id;
-      li.innerHTML =
-        `<span class="obj-mark">${o.done ? '✓' : '○'}</span>` +
-        `<span><span class="obj-text">${escapeHtml(o.text)}</span>` +
-        (o.hint ? `<i class="obj-hint">${escapeHtml(o.hint)}</i>` : '') +
-        `</span>`;
-      ul.appendChild(li);
-    }
-    if (shown.length) block.appendChild(ul);
-    else {
-      const note = document.createElement('div');
-      note.className = 'case-mission-log';
-      note.textContent = m.status === 'locked' ? 'Objectives appear once this mission starts.' : '';
-      if (m.status === 'locked') block.appendChild(note);
-    }
-
-    if (m.status === 'complete' && m.rewards.length) {
-      const rw = document.createElement('div');
-      rw.className = 'case-reward';
-      rw.textContent = `REWARD — ${m.rewards.join(' · ')}`;
-      block.appendChild(rw);
-    }
-    listEl.appendChild(block);
-  }
-
-  // ---- discrepancy + evidence ---------------------------------------------
-  if (story.discrepancy) {
-    const box = document.createElement('div');
-    box.className = 'case-discrepancy';
-    box.textContent = story.discrepancy;
-    detailEl.appendChild(box);
-  }
-
-  const label = document.createElement('div');
-  label.className = 'case-section-label';
-  label.textContent = `EVIDENCE (${story.evidence.length})`;
-  detailEl.appendChild(label);
-
-  if (!story.evidence.length) {
-    const empty = document.createElement('div');
-    empty.className = 'journal-empty';
-    empty.textContent =
-      'NOTHING FILED YET. Conversations, findings and recovered ledgers land ' +
-      'here — every entry can be reopened later.';
-    detailEl.appendChild(empty);
-    return;
-  }
-
-  const list = document.createElement('div');
-  list.className = 'case-ev-list';
-  for (const ev of story.evidence) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'case-ev' + (expandedEvidence === ev.id ? ' open' : '');
-    btn.dataset.evidence = ev.id;
-    btn.innerHTML =
-      `<span class="case-ev-tag">${escapeHtml((ev.tag ?? 'case').toUpperCase())}</span>` +
-      `<div class="case-ev-title">${escapeHtml(ev.title)}</div>` +
-      `<div class="case-ev-body">${escapeHtml(ev.body)}</div>`;
-    btn.addEventListener('click', () => {
-      expandedEvidence = expandedEvidence === ev.id ? null : ev.id;
-      renderCase(listEl, detailEl, countEl);
-    });
-    list.appendChild(btn);
-  }
-  detailEl.appendChild(list);
 }
 
 /* ------------------------- extraction channel --------------------------- */

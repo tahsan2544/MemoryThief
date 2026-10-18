@@ -19,7 +19,7 @@
  *              look behind, weight stamp) so standing still stays alive
  *   channel  — the sustained extraction pose (glove raised, head down)
  *   gesture  — one-shot named arm poses (reach / point / brace / adjust /
- *              wave) fired by interactions and dialogue
+ *              wave) fired by interactions
  */
 
 const TWO_PI = Math.PI * 2;

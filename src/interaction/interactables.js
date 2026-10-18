@@ -3,7 +3,7 @@
  *
  * Phase 2 only ships the *system*: proximity detection, a prompt and a short
  * read-out. The texts are deliberately brief environmental fragments — no
- * exposition, no quest logic. Later phases hang dialogue and memory puzzles
+ * exposition, no quest logic. Later phases hang memory puzzles
  * off the same records.
  *
  * Positions are derived from the layout (not hard-coded coordinates) so any
@@ -86,8 +86,8 @@ export function createInteractables(layout) {
       label: 'Examine the missing-person notices',
       title: 'UNDERARCHIVE PERIMETER — NOTICES',
       body:
-        'Sixty-two sheets, all filed this month. Eleven of them are the same ' +
-        'face under different names, and none has a follow-up date.',
+        'Sixty-two sheets, all filed this month. Most are the usual drift — ' +
+        'runaways, debts, disputes — and not one has a follow-up date.',
     });
   }
 

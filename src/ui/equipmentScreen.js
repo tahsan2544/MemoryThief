@@ -1,18 +1,16 @@
 /**
  * EquipmentScreen — inventory & equipment (Phase 6).
  *
- * Three columns, one visual language with the rest of the interface:
+ * Two columns, one visual language with the rest of the interface:
  *   1. THE GLOVE  — its live stats, with any upgraded value highlighted
  *   2. UPGRADES   — the four purchasable improvements, each explaining what
  *                   it does in plain numbers, with its cost and a buy button
- *   3. CARRIED    — physical case items you have been handed (papers, scrip)
  *
  * Presentation only: data arrives through `cbs.data()` (motes, effects,
- * ownership, evidence), purchases go out through `cbs.onBuy(id)`.
+ * ownership), purchases go out through `cbs.onBuy(id)`.
  */
 
 import { UPGRADES } from '../progression/upgrades.js';
-import { EVIDENCE } from '../story/missionDefs.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -43,7 +41,7 @@ function render() {
       `<span class="gear-motes-earned">${data.motes.earned} earned · ${data.motes.spent} spent</span>`;
   }
   const how = $('gear-how');
-  if (how) how.textContent = 'Motes: +3 per reconstructed memory, +1 per piece of evidence filed.';
+  if (how) how.textContent = 'Motes: +4 per reconstructed memory.';
 
   // 1 — the glove
   const glove = $('gear-glove');
@@ -90,27 +88,6 @@ function render() {
       btn.addEventListener('click', () => cbs?.onBuy?.(u.id));
       card.appendChild(btn);
       grid.appendChild(card);
-    }
-  }
-
-  // 3 — carried case items
-  const carried = $('gear-carried');
-  if (carried) {
-    carried.innerHTML = '';
-    const items = (data.evidence ?? []).filter((e) => EVIDENCE[e.id]?.item);
-    if (!items.length) {
-      const none = document.createElement('div');
-      none.className = 'gear-empty';
-      none.textContent = 'Pockets empty — people have not handed you anything yet.';
-      carried.appendChild(none);
-    } else {
-      for (const e of items) {
-        const row = document.createElement('div');
-        row.className = 'gear-carried-item';
-        row.dataset.evidence = e.id;
-        row.innerHTML = `<b>${e.title}</b><span>${(e.body ?? '').slice(0, 72)}…</span>`;
-        carried.appendChild(row);
-      }
     }
   }
 }
@@ -166,7 +143,6 @@ export function equipmentSnapshot() {
     motes: data?.motes ?? null,
     owned: data?.owned ?? [],
     effects: data?.effects ?? null,
-    items: [...($('gear-carried')?.children ?? [])].map((el) => el.dataset?.evidence ?? el.textContent.slice(0, 24)),
     buyDisabled: [...document.querySelectorAll('.gear-buy')].map((b) => ({ id: b.dataset.buy, disabled: b.disabled })),
     statUpgraded: [...document.querySelectorAll('.gear-stat.up b')].map((b) => b.textContent),
     visible: !$('gear')?.classList.contains('hidden'),

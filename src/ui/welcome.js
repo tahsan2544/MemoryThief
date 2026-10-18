@@ -1,4 +1,4 @@
-/** Welcome screen — the case file the city greets you with, once the world is
+/** Welcome screen — the title card the city greets you with, once the world is
  *  ready and before play begins. Shown on boot only; starting is a deliberate
  *  click (which doubles as the browser gesture that unlocks WebAudio). */
 
