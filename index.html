@@ -23,6 +23,8 @@
     </div>
 
     <!-- ============================ WELCOME ============================ -->
+    <!-- Translucent on purpose: the live city keeps rendering behind the
+         title card, so the walk you are about to begin is already on screen. -->
     <div id="welcome" class="overlay welcome hidden">
       <div class="welcome-box">
         <div class="welcome-kicker">PALISADE ARCHIVE // CLEARANCE GRANTED</div>
@@ -44,7 +46,13 @@
         </div>
         <button id="welcome-start" type="button" class="welcome-start">BEGIN THE WALK</button>
         <div class="welcome-note">Guards watch, sealed zones forbid you, sound tells on you. Move with intent.</div>
+        <div class="welcome-meta">
+          <span id="welcome-clock" class="welcome-clock">22:00 · NIGHT</span>
+          <span class="welcome-meta-sep">·</span>
+          <span id="welcome-stamp" class="welcome-stamp">EIDOLON-77 · 12×12</span>
+        </div>
       </div>
+      <div class="welcome-edge">The city runs on its own clock — rain, dawn and lamplight arrive by the hour · Settings → Graphics · Accessibility options in Settings</div>
     </div>
 
     <!-- ============================== HUD ============================== -->
@@ -77,6 +85,12 @@
       <div class="hud-minimap" id="minimap">
         <canvas id="minimap-canvas" width="184" height="184" aria-label="Mini-map"></canvas>
         <div class="minimap-label" id="minimap-label">—</div>
+      </div>
+
+      <!-- the city clock: stays up even when the radar is tucked away -->
+      <div class="hud-clock" id="hud-clock" aria-label="City time">
+        <span id="clock-time">22:00</span>
+        <span id="clock-phase">NIGHT</span>
       </div>
     </div>
 
@@ -141,6 +155,11 @@
       <label class="field check">
         <input id="set-wet" type="checkbox" checked />
         <span>Wet street reflections</span>
+      </label>
+
+      <label class="field check">
+        <input id="set-daynight" type="checkbox" checked />
+        <span>Day/night cycle</span>
       </label>
 
       <div class="panel-sub">CONTROLS</div>

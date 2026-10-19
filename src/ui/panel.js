@@ -24,6 +24,7 @@ export function initPanel(callbacks) {
   const rain = $('set-rain');
   const shadows = $('set-shadows');
   const wet = $('set-wet');
+  const dayNight = $('set-daynight');
   const sens = $('set-sens');
   const sensOut = $('out-sens');
   const dist = $('set-dist');
@@ -54,6 +55,7 @@ export function initPanel(callbacks) {
     rain.checked = settings.rain;
     shadows.checked = settings.shadows;
     wet.checked = settings.wet;
+    if (dayNight) dayNight.checked = !!settings.dayNight;
     if (sens) sens.value = String(settings.sensitivity);
     if (sensOut) sensOut.textContent = `${Number(settings.sensitivity).toFixed(2)}×`;
     if (dist) dist.value = String(settings.camDistance);
@@ -130,6 +132,12 @@ export function initPanel(callbacks) {
     callbacks.onWet?.(settings.wet);
   });
 
+  // the clock freezes/thaws live — weather stops changing the moment it pauses
+  dayNight?.addEventListener('change', () => {
+    settings.dayNight = dayNight.checked;
+    callbacks.onDayNight?.(settings.dayNight);
+  });
+
   qualitySel.addEventListener('change', () => {
     settings.quality = qualitySel.value;
     applyQuality();
@@ -193,6 +201,7 @@ export function initPanel(callbacks) {
     callbacks.onRain?.(settings.rain);
     callbacks.onShadows?.(settings.shadows);
     callbacks.onWet?.(settings.wet);
+    callbacks.onDayNight?.(settings.dayNight);
     callbacks.onQuality?.(settings.quality, QUALITY_PRESETS[settings.quality]);
     callbacks.onRenderScale?.(settings.renderScale);
   });

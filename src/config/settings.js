@@ -88,6 +88,11 @@ export const DEFAULTS = {
   rain: true,
   shadows: true,
   wet: true,
+  // Day/night (Phase 11): the clock runs (a full day = 12 real minutes) and
+  // the weather schedule follows it. `time` is the boot hour — 22:00, the
+  // city's signature night. Both are URL-pinnable for tests/screenshots.
+  dayNight: true,
+  time: 22,
   // Internal render resolution of the 3D scene (the DOM HUD always draws at
   // native size). 1 = native pixels, 0.75 = 44% fewer, 0.5 = a quarter of them.
   // Measured as the dominant cost under software GL: every preset converged on
@@ -122,7 +127,12 @@ function parseBool(v, fallback) {
 /** URL overrides that pinned a value. The software-GL fallback (below) steps
  * aside when the caller — tests, screenshots, power users — decided
  * explicitly, so every automated run measures exactly what it asks for. */
-const urlPinned = { quality: false, renderScale: false };
+const urlPinned = { quality: false, renderScale: false, cycle: false, time: false };
+
+/** Which URL pins are active (tests/directors step aside for explicit pins). */
+export function urlPins() {
+  return { ...urlPinned };
+}
 
 /** Read overrides from the URL so builds/screenshots can be parameterised. */
 export function applyUrlOverrides(search = window.location.search) {
@@ -147,6 +157,17 @@ export function applyUrlOverrides(search = window.location.search) {
   if (q.has('rain')) settings.rain = parseBool(q.get('rain'), settings.rain);
   if (q.has('shadows')) settings.shadows = parseBool(q.get('shadows'), settings.shadows);
   if (q.has('wet')) settings.wet = parseBool(q.get('wet'), settings.wet);
+  if (q.has('cycle')) {
+    settings.dayNight = parseBool(q.get('cycle'), settings.dayNight);
+    urlPinned.cycle = true;
+  }
+  if (q.has('time')) {
+    const t = parseFloat(q.get('time'));
+    if (!Number.isNaN(t)) {
+      settings.time = ((t % 24) + 24) % 24;
+      urlPinned.time = true;
+    }
+  }
   if (q.has('rs')) {
     const r = parseFloat(q.get('rs'));
     if (!Number.isNaN(r)) {

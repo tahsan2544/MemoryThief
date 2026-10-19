@@ -10,7 +10,7 @@ changes the street when you play them back.
 [![🌐 Live](https://img.shields.io/badge/%F0%9F%8C%90%20Live-Play%20now-2563eb?style=flat-square&logo=vercel&logoColor=white)](https://memorythief.vercel.app)
 [![Three.js](https://img.shields.io/badge/Three.js-WebGL-black?style=flat-square&logo=threedotjs&logoColor=white)](https://threejs.org)
 [![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev)
-[![Smoke](https://img.shields.io/badge/Smoke%20checks-244%2F244-brightgreen?style=flat-square)](#-testing)
+[![Smoke](https://img.shields.io/badge/Smoke%20checks-262%2F262-brightgreen?style=flat-square)](#-testing)
 [![Assets](https://img.shields.io/badge/Assets-100%25%20procedural-orange?style=flat-square)](#-art--audio--honesty)
 
 *Every building, texture, prop, landmark and sound is generated at load time —
@@ -32,6 +32,7 @@ no downloaded assets, no paid services, no external APIs.*
 - [🎨 Visuals, audio & performance](#-visuals-audio--performance)
 - [🪄 World realism & animation](#-world-realism--animation)
 - [📷 Camera, solidity & the mini-map](#-camera-solidity--the-mini-map)
+- [🕛 Day/night & weather by the clock](#-daynight--weather-by-the-clock)
 - [🏗️ Architecture](#️-architecture)
 - [🗂️ Project layout](#️-project-layout)
 - [🧪 Testing](#-testing)
@@ -77,8 +78,15 @@ people and places — are yours to recover, weigh and replay.
 - 📈 **Honest progression** — four glove upgrades bought with *derived*
   resonance motes (never farmed), plus a save/load system that refuses broken
   checkpoints with a reason instead of eating them.
-- 🗺️ **Map suite** — a **top-right mini-map** (`Tab`) for walking the city,
-  the full generated city map (`M`), and the memory journal (`J`).
+- 🗺️ **Map suite** — a **top-right mini-map** (`Tab`) for walking the city:
+  north-up radar with a facing cone, **speed-linked zoom** (120 m → 150 m at a
+  sprint) and **edge arrows** that keep off-screen landmarks/readings pointed
+  out. Plus the full generated city map (`M`) and the memory journal (`J`).
+- 🕛 **Day/night cycle with weather by the clock** — a 12-minute day: dawn,
+  overcast day, amber dusk, archive night; a seeded schedule brings rain
+  fronts and morning fog by the hour, streets wet under the rain and dry
+  after it; district lamps sleep by day and wake at dusk. A live clock with
+  the phase sits under the radar.
 - 🎨 **Selective bloom & procedural materials** — HDR half-float rendering,
   ACES tone mapping, procedural normal maps, contact-shadow decals.
 - 🔊 **100% procedural audio** — a WebAudio soundscape (ambience bed,
@@ -87,7 +95,7 @@ people and places — are yours to recover, weigh and replay.
 - 🎮 **Accessibility & touch** — interface scale, reduce-flicker,
   high-contrast cards (persisted separately from saves), and a minimal
   touch layer on coarse-pointer devices.
-- ✅ **244 automated checks** — one headless smoke suite plays the game
+- ✅ **262 automated checks** — one headless smoke suite plays the game
   end-to-end and fails the build on any regression.
 
 ## 🚀 Quick start
@@ -97,8 +105,10 @@ npm install
 npm run dev        # 👉 http://localhost:6030
 ```
 
-When the city is ready, the welcome title card greets you; **BEGIN THE WALK**
-starts the game (that click also unlocks the sound). Then click the canvas once
+When the city is ready, the welcome title card greets you — floating over the
+**live city**, with the running clock and the world stamp under the buttons
+(`22:00 · NIGHT · EIDOLON-77 · 12×12`). **BEGIN THE WALK** starts the game
+(that click also unlocks the sound). Then click the canvas once
 to capture the mouse; `Esc` releases it.
 
 Production build / preview:
@@ -579,7 +589,7 @@ interactions.
 
 **A mini-map, not a map viewer.** `src/ui/miniMap.js` draws a 184 px radar in
 the **top-right corner** at ~8 Hz from the *same* snapshot the full map uses:
-the streets and blocks within **±120 m**, district tints, the canal and its
+the streets and blocks around you, district tints, the canal and its
 bridges, landmark pins, held readings, and you as a
 chevron with a facing cone. It deliberately does **not** show people —
 guards stay off the radar, so stealth is still played by eye. It follows the
@@ -588,14 +598,64 @@ map moved to `M` (and the journal to `J`), so nothing was lost — the map
 screen is still there, it is just no longer the thing you press fifty times
 an hour.
 
+Three navigation conventions make it *work* rather than merely exist:
+
+- **Speed-linked zoom** — the window opens from 120 m at a stroll to 150 m at
+  a sprint, smoothed across redraws so it never pops (the travel zoom racing
+  games use).
+- **Edge arrows** — every landmark or held reading outside the window
+  collapses into a small arrow clamped to the frame edge, pointing outward at
+  it. Off-screen never means *gone*.
+- **North-up with a called-out compass** — N is marked amber so the fixed
+  orientation is a visible fact, and the radar stays aligned with the full
+  city map. A live clock (`HH:MM · phase`, `· RAIN` when the schedule says
+  so) sits under the district label.
+
 **Honest cost.** Shells, road slabs and the base box add a few thousand
 triangles to a ~0.8 M triangle city and zero draw calls (they join existing
 buckets). The mini-map is a 2D canvas at 8 Hz — no WebGL work at all.
 
-Test hooks: `__MT_MINIMAP__` (visibility, canvas size, the world point the
-radar was last drawn at, district label, pin counts) and `gait` on
+Test hooks: `__MT_MINIMAP__` (visibility, canvas size, live zoom window,
+north-up flag, the world point the radar was last drawn at, district label,
+pin counts, on-map/off-screen pin split, live speed) and `gait` on
 `__MT_PLAYER__` (live knee / elbow / torso channels — proof the rig is
 actually articulating).
+
+## 🕛 Day/night & weather by the clock
+
+`src/environment/dayNight.js` owns one authoritative game hour and every
+system that follows it:
+
+- **The clock.** Boots at **22:00** — the archive hour, the city's
+  signature night (night palettes *are* the shipped `PALETTE` values, so a
+  frozen clock renders exactly the look the game always had). A full day
+  takes **12 real minutes** (30 s per game hour): smooth ~2.5 h shoulders at
+  dawn and dusk, deliberately time-shaped rather than a raw sine so both
+  last long enough to watch. The clock is presentation state — not saved.
+- **Sky.** The dome repaints from a blended palette (night → overcast
+  teal-grey day, warmed by a dawn/dusk amber bell), stars and moon fade with
+  the night, a warm sun disc rides the day arc, and the PMREM environment
+  map re-bakes on meaningful changes of light (throttled ≥20 s, skipped
+  entirely on Low — the tier software-GL machines run).
+- **Light.** Ambient/hemi/key colours and intensity follow the clock; the
+  key light sits on the sun's arc by day and the moon's by night, dipping
+  through twilight exactly where the direction changes hands; district and
+  landmark lamps scale with darkness (×1 at night → ×0.18 at noon).
+- **Weather by time.** A seeded per-day schedule (`createRng(seed·day)`)
+  lays 1–3 rain fronts and a morning fog window on the timeline — the same
+  city seed always gets the same weather, day 0 always opens on an evening
+  rain front. Rain intensity, fog thickness (fog distance × the window) and
+  wet streets (wet under ≥0.35 rain for 12 s, dry 60 s after it stops) all
+  follow it. Explicit `?rain=1/0` pins always win, and a frozen clock holds
+  weather exactly as it was.
+- **UI.** A `HH:MM · phase` clock under the radar and on the welcome card;
+  Settings → Graphics gains a live **Day/night cycle** toggle (freezing the
+  clock freezes the weather with it).
+
+URL pins for tests/screenshots: `?time=12.5` (start hour) and `?cycle=0`
+(freeze — the smoke suite pins this, which is why every time-driven check is
+exact). Test hooks: `__MT_TIME__` (set/read, `peek` for scans), `__MT_WEATHER__`
+(pure schedule reads, seed-pinnable), `__MT_SKY__`, `__MT_LIGHT_TIME__`.
 
 ## 🏗️ Architecture
 
@@ -666,7 +726,8 @@ src/
   world/              layout, textures, materials, buildings, props, landmarks,
                       details, colliders, memory sites, city life (routes,
                       agents, hide spots, zones), world orchestrator
-  environment/        sky + env map, lighting rig, rain
+  environment/        sky + env map, lighting rig, rain, day/night clock
+                      + seeded weather-by-the-hour schedule
   character/          Riven Vale model + procedural animator
   npc/                bystander figures (ten-mesh articulated rigs, procedural
                       face atlas + fabric normals), NPC agent (perception +
@@ -681,7 +742,7 @@ src/
                       channel, stealth HUD, city map,
                       corner mini-map
 scripts/smoke.mjs     headless screenshot/error/welcome/gameplay/memory/city-life
-                      smoke test (244 checks, exit code reflects failures)
+                      smoke test (262 checks, exit code reflects failures)
 scripts/probe.mjs     headless runtime probe (stats + lights, no screenshots)
 scripts/probe-ui.mjs  focused UI probe (mini-map, map/journal keys, camera
                       ground clamp, articulated gait)
@@ -693,22 +754,26 @@ scripts/probe-figures.mjs visual probe — per-role figure close-ups (body
 scripts/probe-buildings.mjs visual probe — every inspect fly-camera view plus
                       pavement-level close-ups aimed at real building lines
                       (reads `__MT_LAYOUT__` cells)
+scripts/probe-daynight.mjs visual probe — welcome card over the live city, a
+                      full day from overview + street level, rain-vs-clear
+                      hours from the live schedule, mini-map idle/sprint zoom
 ```
 
 ## 🧪 Testing
 
 One headless smoke suite (`scripts/smoke.mjs`, headless Edge + Puppeteer)
-starts the dev server, plays the game and asserts **244 checks** in six
+starts the dev server, plays the game and asserts **262 checks** in seven
 groups — the exit code reflects failures, so it gates every change:
 
 | 🔍 Group | Checks | What it proves |
 | --- | --- | --- |
-| 🛈 Welcome | 4 | the title screen greets you before play, the movement gate holds behind it, BEGIN starts the walk, it never comes back |
+| 🛈 Welcome | 5 | the title screen greets you before play (with the live city clock), the movement gate holds behind it, BEGIN starts the walk, it never comes back |
 | 🎮 Gameplay | 30 | walking, sprinting, jumping, collision (walls, barriers, camera boom), prompts, read-out cards |
 | 🧠 Memory | 59 | extraction + cooldown/cancel paths, journal, contradictions, reconstruction playback/cancellation, the hidden door, replay gating, Resonance Sight |
 | 🏙️ City life | 26 | population & archetypes, hide spots, restricted zones, patrol movement, SUSPICIOUS→DETECTED escalation with reasons, investigate→search→return cycle, cover breaking line of sight |
-| 📈 Progression | 80 | city map & pins, mini-map + `Tab` toggle, extraction noise, upgrade shop, pause/settings/save-load/new-game round-trips |
+| 📈 Progression | 83 | city map & pins, mini-map + `Tab` toggle + off-screen edge arrows + north-up contract + sprint zoom, extraction noise, upgrade shop, pause/settings/save-load/new-game round-trips |
 | ✅ Quality | 45 | low/medium/high presets, draw-call & GPU-resource leak budgets, same-seed rebuild determinism, volume buses, reduce-FX, fixed-lens camera, software-GL detection + auto-degrade |
+| 🕛 Day/night | 14 | the clock boots frozen at 22:00 and holds, HUD clock text, dawn/noon/dusk/night sky + star/moon/sun response, lamps sleeping by day and waking at night, the schedule's rain/fog windows by hour, fog thickening the air live, weather seeded by the city |
 
 ```bash
 npm run smoke        # ~10 min under software GL; writes smoke/ screenshots
@@ -735,7 +800,8 @@ node scripts/probe-ui.mjs            # mini-map, map/journal keys, camera clamp,
 
 ## ⚙️ Settings & URL overrides
 
-- ▶️ **Live (no rebuild):** fog distance, rain, shadows, wet streets, quality
+- ▶️ **Live (no rebuild):** fog distance, rain, shadows, wet streets,
+  day/night cycle (freezing the clock freezes the weather), quality
   preset, render scale, mouse sensitivity, camera distance, invert-Y,
   procedural sound cues.
 - 🔁 **Rebuild:** seed, world scale (8 / 12 / 16 blocks), district density.
@@ -745,10 +811,13 @@ node scripts/probe-ui.mjs            # mini-map, map/journal keys, camera clamp,
 URL overrides are supported for testing and screenshots:
 
 ```
-http://localhost:6030/?seed=eidolon-77&grid=12&quality=high&density=1.1&fog=800&rain=1&shadows=1&wet=1&sens=1.0&dist=4.6&invert=0&audio=1
+http://localhost:6030/?seed=eidolon-77&grid=12&quality=high&density=1.1&fog=800&rain=1&shadows=1&wet=1&sens=1.0&dist=4.6&invert=0&audio=1&time=18.5&cycle=0
 ```
 
-`?dev=1` starts in the inspection camera instead of play mode.
+- `?dev=1` starts in the inspection camera instead of play mode.
+- `?time=18.5` starts the clock at 18:30; `?cycle=0` freezes it (weather
+  holds too) — the smoke suite pins `?cycle=0`, so every time-driven check
+  is exact.
 
 ## 🚢 Deployment
 
@@ -864,8 +933,9 @@ population grows.
   through geometry by design.
 - Point lights are large district/landmark accents plus the glove light and
   the annex cache light, not per-street-lamp lights.
-- Rain is a fixed volume around the camera; there is no lightning or wind
-  variation yet.
+- Rain is a fixed volume around the camera; when the day/night schedule
+  brings a front, its *intensity* follows the clock, but there is still no
+  lightning and no wind variation (the rain volume's wind is constant).
 - Quality presets cap pixel ratio, shadow map size, prop density and
   visible light count; "Low" disables shadows and rain entirely.
 - **Agents walk through each other and through the player** — they avoid

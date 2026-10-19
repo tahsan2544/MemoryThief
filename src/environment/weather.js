@@ -59,15 +59,24 @@ export function createRain() {
   mesh.visible = false;
 
   let enabled = false;
+  let intensity = 1; // 0..1 — the clock's weather schedule drives this
   const wind = 6.5;
+  const BASE_OPACITY = 0.34;
 
   function setEnabled(v) {
     enabled = v;
-    mesh.visible = v;
+    mesh.visible = v && intensity > 0.02;
+  }
+
+  /** Rain strength from the day/night weather schedule (0 = air clear). */
+  function setIntensity(v) {
+    intensity = Math.max(0, Math.min(1, v || 0));
+    material.opacity = BASE_OPACITY * intensity;
+    mesh.visible = enabled && intensity > 0.02;
   }
 
   function update(dt, cameraPosition) {
-    if (!enabled || dt <= 0) return;
+    if (!enabled || intensity <= 0.02 || dt <= 0) return;
     const p = geometry.attributes.position.array;
     const cx = cameraPosition.x;
     const cy = cameraPosition.y;
@@ -100,6 +109,8 @@ export function createRain() {
   return {
     mesh,
     setEnabled,
+    setIntensity,
+    intensity: () => intensity,
     update,
     dispose() {
       geometry.dispose();

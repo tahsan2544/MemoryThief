@@ -13,10 +13,12 @@ import {
   derived,
   setQuality,
   settings,
+  urlPins,
 } from './config/settings.js';
 import { App } from './core/app.js';
 import { FlyCamera } from './core/flyCamera.js';
 import { Input } from './core/input.js';
+import { clockText, createDayNight, paletteAt } from './environment/dayNight.js';
 import { createLighting } from './environment/lighting.js';
 import { createSky } from './environment/sky.js';
 import { createRain } from './environment/weather.js';
@@ -136,6 +138,98 @@ app.scene.add(sky.group);
 
 const rain = createRain();
 app.scene.add(rain.mesh);
+
+/* Phase 11 — the day/night clock + weather that follows it --------------- */
+const dayNight = createDayNight({
+  seed: settings.seed,
+  hour: settings.time,
+  cycle: settings.dayNight,
+});
+const timePins = urlPins();
+let lastAppliedHour = -1;
+let lastBakeK = 0; // the boot bake reflects the night palette (hour 22, k = 0)
+let lastBakeAt = -Infinity;
+let fogMulApplied = 1;
+let wetApplied = settings.wet;
+let wetCharge = 0; // seconds of meaningful rain — streets wet after 12 s
+let wetDryFor = 0; // seconds since the rain stopped — streets dry after 60 s
+let clockTextApplied = '';
+let lastWeatherAt = performance.now();
+
+/**
+ * Push the current hour into sky/lighting/fog. Cheap (~1.6 k dome vertices +
+ * a few colour sets), throttled by the caller to ~every 0.02 h (≈0.6 s real).
+ * The environment map is re-baked only on a meaningful change of dayness —
+ * and never on Low, which is the tier software-GL machines run.
+ */
+function applyTimeOfDay() {
+  const hour = dayNight.hour();
+  const p = paletteAt(hour);
+  sky.setTimeOfDay(hour);
+  lighting?.setTimeOfDay(hour, dayNight.lightDir());
+  app.setFogColor(p.fog);
+  fogMulApplied = dayNight.weatherAt(hour).fogMul;
+  app.setFog(settings.fogFar * fogMulApplied);
+  if (settings.quality !== 'low' && Math.abs(p.k - lastBakeK) > 0.2 && performance.now() - lastBakeAt > 20000) {
+    const next = sky.bakeEnvironment();
+    if (next) {
+      const old = app.scene.environment;
+      app.scene.environment = next;
+      if (old && old !== next) old.dispose?.();
+      lastBakeK = p.k;
+      lastBakeAt = performance.now();
+    }
+  }
+  lastAppliedHour = hour;
+}
+
+/**
+ * The schedule decides rain and wetness — except when the URL pinned rain
+ * (tests and probes asking for a rainy scene always get steady rain).
+ * Frozen clocks (`?cycle=0`, the settings toggle) hold weather exactly as-is:
+ * that is what makes automated runs deterministic.
+ */
+function weatherTick(dt) {
+  if (!settings.dayNight) return;
+  const w = dayNight.weatherAt(dayNight.hour());
+  const want = timePins.rain ? (settings.rain ? 1 : 0) : (settings.rain ? w.rain : 0);
+  const gate = derived.quality.rain && want > 0.02;
+  if (gate !== rain.mesh.visible || Math.abs(want - rain.intensity()) > 0.03) {
+    rain.setEnabled(gate);
+    rain.setIntensity(want);
+  }
+  if (want >= 0.35) {
+    wetCharge += dt;
+    wetDryFor = 0;
+  } else {
+    wetDryFor += dt;
+    if (wetDryFor > 60) wetCharge = 0;
+  }
+  const wantWet = settings.wet && (wetCharge > 12 || (wetCharge > 0 && wetDryFor < 60));
+  if (wantWet !== wetApplied) {
+    setWet(materials, wantWet);
+    wetApplied = wantWet;
+  }
+}
+
+/** Clock + weather read-out in the HUD (and on the welcome card). */
+function updateClockHud(force = false) {
+  const text = clockText(dayNight.hour());
+  const snap = dayNight.snapshot();
+  const weather = snap.weather.rain >= 0.35 ? ' · RAIN' : snap.weather.fogMul > 1.25 ? ' · FOG' : '';
+  const phase = snap.phase.toUpperCase();
+  const full = `${text} · ${phase}${weather}`;
+  if (!force && full === clockTextApplied) return;
+  clockTextApplied = full;
+  const time = document.getElementById('clock-time');
+  const phaseEl = document.getElementById('clock-phase');
+  if (time) time.textContent = text;
+  if (phaseEl) phaseEl.textContent = `${phase}${weather}`;
+  const wClock = document.getElementById('welcome-clock');
+  if (wClock) wClock.textContent = full;
+  const stamp = document.getElementById('welcome-stamp');
+  if (stamp) stamp.textContent = `${settings.seed.toUpperCase()} · ${settings.grid}×${settings.grid}`;
+}
 
 /* Phase 7 — ambient particles + touch layer ----------------------------- */
 const motes = createMotes();
@@ -598,10 +692,12 @@ async function generate({ quiet = false } = {}) {
 
   try {
     layout = createLayout({ seed: settings.seed, grid: settings.grid });
+    dayNight.setSeed(settings.seed); // the weather timeline belongs to the seed
 
     lighting = createLighting(app.scene, layout, settings, derived.quality);
     app.applyEnvironment({ sky, lighting, weather: rain });
     lighting.update(app.camera.position, 1); // force an immediate light pick
+    applyTimeOfDay(); // the fresh rig adopts the current hour (sky unchanged → no re-bake)
 
     const built = await buildWorld({
       layout,
@@ -625,6 +721,10 @@ async function generate({ quiet = false } = {}) {
 
     setWet(materials, settings.wet);
     rain.setEnabled(settings.rain && derived.quality.rain);
+    rain.setIntensity(1); // the weather tick converges to the schedule next frame
+    wetApplied = settings.wet;
+    wetCharge = 0;
+    wetDryFor = 0;
 
     // ---- place the character ------------------------------------------
     if (!player) {
@@ -721,14 +821,30 @@ app.renderer.domElement.addEventListener('click', () => {
 });
 
 const panel = initPanel({
-  onFog: (far) => app.setFog(far),
-  onRain: (on) => rain.setEnabled(on && derived.quality.rain),
+  onFog: (far) => app.setFog(far * fogMulApplied), // keep the weather's thickness on top
+  onRain: (on) => {
+    rain.setEnabled(on && derived.quality.rain);
+    if (timePins.rain && on) rain.setIntensity(1); // pinned scenes stay steady
+  },
   onShadows: (on) => {
     app.renderer.shadowMap.enabled = on && derived.quality.shadows;
     app.renderer.shadowMap.needsUpdate = true;
     lighting?.setShadowEnabled(on && derived.quality.shadows);
   },
-  onWet: (on) => setWet(materials, on),
+  onWet: (on) => {
+    setWet(materials, on);
+    wetApplied = on;
+    if (on) wetCharge = Math.max(wetCharge, 13); // the wish holds until rain says dry
+    else wetCharge = 0;
+  },
+  onDayNight: (on) => {
+    dayNight.setCycle(on);
+    if (on) {
+      applyTimeOfDay();
+      weatherTick(0);
+    }
+    updateClockHud(true);
+  },
   onAudio: (on) => setAudioEnabled(on),
   onQuality: (id, preset) => {
     app.applyRendererQuality();
@@ -1036,7 +1152,7 @@ function mapData() {
       canal: layout.canal,
       landmarks: layout.landmarks.map((lm) => ({ type: lm.type, x: lm.x, z: lm.z })),
     },
-    player: p ? { x: p.x, z: p.z, yaw: player.facing ?? 0 } : null,
+    player: p ? { x: p.x, z: p.z, yaw: player.facing ?? 0, speed: player.speed ?? 0 } : null,
     discovery: { districts: [...discovery.districts], landmarks: [...discovery.landmarks] },
     sources: (world?.memorySites?.sources ?? []).map((s) => ({
       id: s.id,
@@ -1274,6 +1390,11 @@ app.onUpdate((dt) => {
   sky.update(app.camera.position);
   lighting?.update(app.camera.position, dt);
   rain.update(dt, app.camera.position);
+
+  /* Phase 11 — the clock runs; sky/lamps/fog follow it. A reconstruction owns
+     the environment while active, so the clock waits at the door for it. */
+  dayNight.step(dt);
+  if (!recon.isActive() && Math.abs(dayNight.hour() - lastAppliedHour) > 0.015) applyTimeOfDay();
   motes.update(dt, app.camera.position);
 
   // Phase 8 — focus marker glides to whatever the prompt is pointing at, and
@@ -1297,6 +1418,12 @@ app.onUpdate((dt) => {
     setAmbienceActive(!overlays);
     setRainLevel(settings.rain && derived.quality.rain ? 1 : 0);
     touch.setVisible(mode === 'play' && !overlays);
+
+    // ---- day/night: weather by the clock + the HUD time (Phase 11) ------
+    const wxNow = performance.now();
+    weatherTick(((wxNow - lastWeatherAt) || 250) / 1000);
+    lastWeatherAt = wxNow;
+    updateClockHud();
 
     const info = app.renderInfo;
     const p = mode === 'play' && player ? player.position : app.camera.position;
@@ -1377,7 +1504,10 @@ window.__MT_STATS__ = () => ({
     hz: derived.quality.shadowHz ?? 0,
   },
   lights: lighting?.counts() ?? null,
-  rain: { enabled: rain.mesh.visible },
+  rain: { enabled: rain.mesh.visible, intensity: Number(rain.intensity().toFixed(2)) },
+  /* Phase 11 — the clock and the weather it is currently bringing */
+  time: dayNight.snapshot(),
+  fog: { density: Number(app.scene.fog.density.toFixed(5)) },
   // where the last frame's milliseconds went (EMA — see App.frame)
   stages: { ...app.stageMs },
   memory: {
@@ -1542,6 +1672,28 @@ window.__MT_CAM__ = () => ({
 });
 // corner mini-map: visibility, size, the world point it was last drawn at
 window.__MT_MINIMAP__ = () => miniMapSnapshot();
+
+/* ---- Phase 11 — day/night hooks ---------------------------------------- */
+// Set/read the game clock. `{ cycle }` freezes/thaws it; without arguments it
+// just reports. The suite pins `?cycle=0`, so every set is exact and stable.
+window.__MT_TIME__ = (h, opts = {}) => {
+  if (typeof h === 'number') {
+    if (opts.cycle !== undefined) dayNight.setCycle(!!opts.cycle);
+    dayNight.setHour(h);
+    if (!opts.peek && !recon.isActive()) {
+      applyTimeOfDay();
+      updateClockHud(true);
+    }
+  }
+  return dayNight.snapshot();
+};
+// pure schedule read — no clock side effects (fast 24 h scans in tests)
+window.__MT_WEATHER__ = (h, seed) => dayNight.weatherAt(h, seed);
+window.__MT_SKY__ = () => sky.snapshot();
+window.__MT_LIGHT_TIME__ = () => ({
+  nightScale: Number((lighting?.nightScale() ?? 1).toFixed(3)),
+  lamps: lighting?.counts() ?? null,
+});
 window.__MT_INTERACT__ = () => ({
   near: nearInteractable?.id ?? null,
   prompt: !document.getElementById('prompt')?.classList.contains('hidden'),

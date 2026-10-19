@@ -5,8 +5,17 @@
  * A small north-up canvas showing the streets and blocks AROUND YOU: district
  * blocks tinted by identity, the Floodworks canal and its bridges, landmark
  * pins (discovered ones named nearby, unknown ones faint), memory readings
- * you hold and landmarks. You are the chevron in the middle with a
- * facing cone.
+ * you hold. You are the chevron in the middle with a facing cone.
+ *
+ * Navigation conventions this radar follows (widely used and researched —
+ * fixed north-up with a compass mark, and off-screen markers clamped to the
+ * frame edge to show where things are that you cannot see):
+ *  - speed-linked zoom: 120 m window at a stroll, opening to 150 m at a
+ *    sprint, smoothed across redraws so it never pops;
+ *  - edge pips: every landmark / held reading outside the window becomes a
+ *    small arrow on the frame pointing at it;
+ *  - N / S / W / E marks, with N called out in amber so "north-up" is a
+ *    visible fact, not an assumption.
  *
  * It deliberately does NOT show people: guards and patrols stay off the
  * radar, so stealth still has to be played by eye and by the awareness chip.
@@ -20,14 +29,20 @@ import { LANDMARK_NAMES } from '../progression/discovery.js';
 
 const $ = (id) => document.getElementById(id);
 
-/** Half-width of the world window, in metres. */
-const RANGE = 120;
+/** Half-width of the world window, in metres (walk / sprint ends). */
+const RANGE_WALK = 120;
+const RANGE_SPRINT = 150;
 const REDRAW_MS = 120; // ~8 Hz is plenty for a radar and costs nothing
 
 let cbs = null;
 let visible = true;
 let lastDraw = 0;
 let lastPlayer = null; // { x, z } of the previous draw (smoke reads this)
+let range = RANGE_WALK; // smoothed live zoom
+let pins = {
+  onmap: { landmarks: 0, readings: 0 },
+  offscreen: { landmarks: 0, readings: 0 },
+};
 
 function cssColor(hexNum, alpha = 1) {
   const n = hexNum & 0xffffff;
@@ -35,6 +50,30 @@ function cssColor(hexNum, alpha = 1) {
   const g = (n >> 8) & 255;
   const b = n & 255;
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/** Where the frame border sits along a direction from the centre (canvas px). */
+function edgePoint(dx, dz, size, margin = 11) {
+  const half = size / 2 - margin;
+  const ax = Math.abs(dx);
+  const az = Math.abs(dz);
+  const t = Math.min(ax > 0.01 ? half / ax : Infinity, az > 0.01 ? half / az : Infinity);
+  return { x: size / 2 + dx * t, y: size / 2 + dz * t, ang: Math.atan2(dz, dx) };
+}
+
+/** Outward arrow on the frame — "there is something that way, off the map". */
+function drawPip(ctx, x, y, ang, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(ang);
+  ctx.beginPath();
+  ctx.moveTo(5.5, 0);
+  ctx.lineTo(-3, 3.6);
+  ctx.lineTo(-3, -3.6);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.restore();
 }
 
 function draw() {
@@ -58,8 +97,14 @@ function draw() {
   const px = data.player.x;
   const pz = data.player.z;
 
-  // world -> canvas: north-up, player centred, RANGE metres across
-  const scale = size / (RANGE * 2);
+  // speed-linked zoom: 120 m at a stroll, opening to 150 m at a sprint —
+  // smoothed across redraws so the window never pops
+  const spd = data.player.speed ?? 0;
+  const target = RANGE_WALK + Math.min(1, Math.max(0, (spd - 1.2) / 3.8)) * (RANGE_SPRINT - RANGE_WALK);
+  range += (target - range) * 0.18;
+
+  // world -> canvas: north-up, player centred, `range` metres across
+  const scale = size / (range * 2);
   const sx = (x) => size / 2 + (x - px) * scale;
   const sz = (z) => size / 2 + (z - pz) * scale;
 
@@ -81,7 +126,7 @@ function draw() {
   ctx.rect(0, 0, size, size);
   ctx.clip();
   for (const c of cells) {
-    if (c.x1 < px - RANGE || c.x0 > px + RANGE || c.z1 < pz - RANGE || c.z0 > pz + RANGE) continue;
+    if (c.x1 < px - range || c.x0 > px + range || c.z1 < pz - range || c.z0 > pz + range) continue;
     const known = discovered.districts.has(c.district);
     const info = DISTRICTS[c.district];
     const x0 = sx(c.x0 + halfRoad * 0.4);
@@ -96,7 +141,7 @@ function draw() {
   }
 
   // the canal band + bridge crossings
-  if (canal && canal.z + canal.width > pz - RANGE && canal.z - canal.width < pz + RANGE) {
+  if (canal && canal.z + canal.width > pz - range && canal.z - canal.width < pz + range) {
     const cz0 = sz(canal.z - canal.width / 2);
     const cz1 = sz(canal.z + canal.width / 2);
     const cx0 = sx(canal.x0);
@@ -110,11 +155,27 @@ function draw() {
     }
   }
 
-  // memory readings you hold (violet rings)
+  // memory readings you hold (violet rings — violet pips when off-window)
+  const half = size / 2;
+  pins = {
+    onmap: { landmarks: 0, readings: 0 },
+    offscreen: { landmarks: 0, readings: 0 },
+  };
   for (const s of data.sources ?? []) {
     if (!s.held) continue;
+    const rx = sx(s.x);
+    const rz = sz(s.z);
+    const dx = rx - half;
+    const dz = rz - half;
+    if (Math.abs(dx) > half - 2 || Math.abs(dz) > half - 2) {
+      const e = edgePoint(dx, dz, size, 11);
+      drawPip(ctx, e.x, e.y, e.ang, 'rgba(154, 123, 255, 0.95)');
+      pins.offscreen.readings++;
+      continue;
+    }
+    pins.onmap.readings++;
     ctx.beginPath();
-    ctx.arc(sx(s.x), sz(s.z), 3.5, 0, Math.PI * 2);
+    ctx.arc(rx, rz, 3.5, 0, Math.PI * 2);
     ctx.strokeStyle = 'rgba(154, 123, 255, 0.95)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
@@ -122,11 +183,21 @@ function draw() {
     ctx.fill();
   }
 
-  // landmark pins: discovered = amber, unknown = faint "?"
+  // landmark pins: discovered = amber, unknown = faint "?" — anything beyond
+  // the window collapses into an arrow on the frame instead of vanishing
   for (const lm of landmarks ?? []) {
     const lx = sx(lm.x);
     const ly = sz(lm.z);
     const known = discovered.landmarks.has(lm.type);
+    const dx = lx - half;
+    const dz = ly - half;
+    if (Math.abs(dx) > half - 2 || Math.abs(dz) > half - 2) {
+      const e = edgePoint(dx, dz, size, 12);
+      drawPip(ctx, e.x, e.y, e.ang, known ? 'rgba(255, 196, 92, 0.95)' : 'rgba(127, 141, 176, 0.55)');
+      pins.offscreen.landmarks++;
+      continue;
+    }
+    pins.onmap.landmarks++;
     ctx.beginPath();
     ctx.moveTo(lx, ly - 5);
     ctx.lineTo(lx + 4.5, ly);
@@ -174,14 +245,16 @@ function draw() {
   ctx.restore();
   ctx.restore();
 
-  // frame + compass ticks
+  // frame + compass ticks (north-up — N is called out in amber so the map's
+  // orientation is a visible fact, and it matches the full city map)
   ctx.strokeStyle = 'rgba(120, 150, 210, 0.35)';
   ctx.lineWidth = 1;
   ctx.strokeRect(0.5, 0.5, size - 1, size - 1);
   ctx.font = '600 9px "Cascadia Mono", Consolas, monospace';
-  ctx.fillStyle = 'rgba(210, 226, 255, 0.75)';
   ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(255, 196, 92, 0.95)';
   ctx.fillText('N', size / 2, 10);
+  ctx.fillStyle = 'rgba(210, 226, 255, 0.75)';
   ctx.fillText('S', size / 2, size - 3);
   ctx.fillText('W', 8, size / 2 + 3);
   ctx.fillText('E', size - 8, size / 2 + 3);
@@ -236,13 +309,15 @@ export function miniMapSnapshot() {
   return {
     visible,
     size: canvas?.clientWidth ?? 0,
-    worldRange: RANGE,
+    worldRange: Math.round(range), // live window half-width (120 walk → 150 sprint)
+    northUp: true,
     label: $('minimap-label')?.textContent ?? '',
     player: data?.player
       ? {
           x: Math.round(data.player.x),
           z: Math.round(data.player.z),
           yaw: data.player.yaw ?? 0,
+          speed: Number((data.player.speed ?? 0).toFixed(2)),
         }
       : null,
     drawnAt: lastPlayer ? { x: Math.round(lastPlayer.x), z: Math.round(lastPlayer.z) } : null,
@@ -251,5 +326,8 @@ export function miniMapSnapshot() {
       sources: (data?.sources ?? []).filter((s) => s.held).length,
       markers: (data?.markers ?? []).length,
     },
+    // where the frame's edge pips pointed at the last draw
+    offscreen: { ...pins.offscreen },
+    onmap: { ...pins.onmap },
   };
 }

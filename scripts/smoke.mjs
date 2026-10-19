@@ -99,6 +99,10 @@ async function runWelcomeTests(page, errors, warnings) {
   const still = await state();
   check('the welcome does not come back', still === false, String(still));
 
+  // the title card reads the city clock (Phase 11)
+  const wClock = await page.$eval('#welcome-clock', (e) => e.textContent?.trim() ?? '').catch(() => '');
+  check('welcome shows the city clock', /^\d{1,2}:\d{2} · (NIGHT|DAWN|DAY|DUSK)/.test(wClock), wClock);
+
   const passed = results.filter((r) => r.ok).length;
   console.log(`[smoke] welcome checks: ${passed}/${results.length} passed`);
   return results;
@@ -1266,6 +1270,36 @@ async function runProgressionTests(page, errors, warnings) {
   check('mini-map names the district you stand in', (mm.label ?? '').length > 0, mm.label);
   check('mini-map knows every landmark of the city', (mm.pins?.landmarks ?? 0) === 5, JSON.stringify(mm.pins));
 
+  // off-screen things stay present as arrows on the frame (Phase 11)
+  const offTotal = (mm.offscreen?.landmarks ?? 0) + (mm.onmap?.landmarks ?? 0);
+  check('mini-map points off the frame at distant landmarks',
+    offTotal === 5 && (mm.offscreen?.landmarks ?? 0) >= 1 && (mm.onmap?.landmarks ?? 0) < 5,
+    JSON.stringify({ onmap: mm.onmap, offscreen: mm.offscreen }));
+  check('mini-map is north-up with a live zoom window',
+    mm.northUp === true && (mm.worldRange ?? 0) >= 120 && (mm.worldRange ?? 0) <= 150,
+    `northUp=${mm.northUp} range=${mm.worldRange}`);
+
+  // speed-linked zoom: run on the proven-open spawn road and watch it open up
+  await ev((d) => window.__MT_SPAWN__(d), 'oldquarter');
+  await sleep(1500);
+  await ev(() => {
+    window.__MT_KEY__('ShiftLeft', true);
+    window.__MT_KEY__('KeyW', true);
+  });
+  let maxRange = 0;
+  let maxSpeed = 0;
+  for (let i = 0; i < 20 && maxRange <= 125; i++) {
+    const s = await ev(() => window.__MT_MINIMAP__());
+    maxRange = Math.max(maxRange, s.worldRange ?? 120);
+    maxSpeed = Math.max(maxSpeed, s.player?.speed ?? 0);
+    if (maxRange <= 125) await sleep(700);
+  }
+  await ev(() => {
+    window.__MT_KEY__('ShiftLeft', false);
+    window.__MT_KEY__('KeyW', false);
+  });
+  check('mini-map zooms out when you run', maxRange > 125, `range=${maxRange} speed=${maxSpeed.toFixed(1)}`);
+
   // Tab hides it and brings it back — and a hidden radar stays hidden
   await press('Tab');
   mm = await until(() => ev(() => window.__MT_MINIMAP__()), (x) => x.visible === false, 20000);
@@ -1834,6 +1868,137 @@ async function runPhase7Tests(page, errors, warnings) {
   if (passed !== results.length) warnings.push(`${results.length - passed} quality check(s) failed`);
 }
 
+/* --------------------------------------------------------------------- *
+ * Phase 11 — day/night + weather by the clock
+ *
+ * The suite URL pins `?cycle=0`, so the clock only moves when these checks
+ * move it — every time-driven assertion is exact and order-independent.
+ * The rain leg of the schedule is verified through the schedule itself
+ * (the suite pins rain on, which always wins); the live rain-by-time path
+ * is proven visually by scripts/probe-daynight.mjs.
+ * --------------------------------------------------------------------- */
+async function runDayNightTests(page, errors, warnings) {
+  const results = [];
+  const check = (name, ok, detail = '') => {
+    results.push({ name, ok });
+    const line = `${name}${detail ? ` — ${detail}` : ''}`;
+    if (ok) console.log(`[smoke]   ok   ${line}`);
+    else {
+      errors.push(`day/night: ${line}`);
+      console.log(`[smoke]   FAIL ${line}`);
+    }
+  };
+  const ev = (fn, ...args) => page.evaluate(fn, ...args);
+  const setTime = (h) => ev((hh) => window.__MT_TIME__(hh), h);
+  const stats = () => ev(() => window.__MT_STATS__());
+  const hud = (id) => page.$eval(id, (e) => e.textContent?.trim() ?? '').catch(() => '');
+
+  // ---- boot state: the archive hour, frozen by ?cycle=0 ----------------
+  const t0 = await ev(() => window.__MT_TIME__());
+  check('the clock boots at the archive hour',
+    Math.abs((t0?.hour ?? -1) - 22) < 0.01 && t0?.cycle === false,
+    `hour=${t0?.hour?.toFixed?.(2)} cycle=${t0?.cycle} phase=${t0?.phase}`);
+  const hudTime = await hud('#clock-time');
+  check('the HUD clock reads the city time', /^22:00$/.test(hudTime), hudTime);
+  const hudPhase = await hud('#clock-phase');
+  check('the HUD clock names the phase', /NIGHT/.test(hudPhase), hudPhase);
+
+  const frozenA = (await ev(() => window.__MT_TIME__())).hour;
+  await sleep(1600); // several slow SwiftShader frames pass in between
+  const frozenB = (await ev(() => window.__MT_TIME__())).hour;
+  check('the frozen clock holds still', frozenA === frozenB, `${frozenA} → ${frozenB}`);
+
+  const nightSky = await ev(() => window.__MT_SKY__());
+  const bootLamps = await ev(() => window.__MT_LIGHT_TIME__());
+
+  // ---- dawn -------------------------------------------------------------
+  let t = await setTime(6);
+  const dawnSky = await ev(() => window.__MT_SKY__());
+  check('dawn lifts the sky off the floor',
+    t.phase === 'dawn' && t.dayness > 0.05 && t.dayness < 0.65 && t.warmth > 0.5 &&
+    dawnSky.zenith !== nightSky.zenith && dawnSky.starOpacity < nightSky.starOpacity,
+    `k=${t.dayness?.toFixed?.(2)} warm=${t.warmth?.toFixed?.(2)} ` +
+    `zenith ${nightSky.zenith}→${dawnSky.zenith} stars ${nightSky.starOpacity}→${dawnSky.starOpacity}`);
+
+  // ---- noon -------------------------------------------------------------
+  t = await setTime(12);
+  const noonSky = await ev(() => window.__MT_SKY__());
+  const noonLamps = await ev(() => window.__MT_LIGHT_TIME__());
+  check('noon is the day at its brightest',
+    t.phase === 'day' && t.dayness >= 0.99 && noonSky.sunOpacity > 0.5 && noonSky.starOpacity < 0.06,
+    `k=${t.dayness?.toFixed?.(2)} sun=${noonSky.sunOpacity} stars=${noonSky.starOpacity}`);
+  check('noon puts the district lamps to sleep', noonLamps.nightScale < 0.4,
+    `nightScale=${noonLamps.nightScale}`);
+  const clearStats = await stats(); // noon is always a clear hour: the fog window ends by 11:42
+
+  // ---- weather schedule: rain windows + the morning fog -----------------
+  const scan = await ev(() => {
+    const out = [];
+    for (let h = 0; h < 24; h += 0.5) out.push({ h, ...window.__MT_WEATHER__(h) });
+    return out;
+  });
+  const wetHours = scan.filter((s) => s.rain > 0.3).length;
+  const dryHours = scan.filter((s) => s.rain < 0.05).length;
+  check('the schedule rains at some hours and dries at others',
+    wetHours > 0 && dryHours > 40, `${wetHours} wet / ${dryHours} dry half-hours`);
+  const fogPeak = scan.reduce((a, b) => (b.fogMul > a.fogMul ? b : a), scan[0]);
+  check('morning fog arrives by the clock', fogPeak.fogMul > 1.15 && fogPeak.h < 13,
+    `peak ${fogPeak.fogMul?.toFixed?.(2)}× at ${fogPeak.h} h`);
+
+  t = await setTime(fogPeak.h);
+  const fogStats = await stats();
+  check('fog thickens the air when that hour comes',
+    (fogStats.fog?.density ?? 0) > 0 && fogStats.fog.density < (clearStats.fog?.density ?? 0),
+    `density ${clearStats.fog?.density} → ${fogStats.fog?.density} (fogMul ${fogPeak.fogMul?.toFixed?.(2)}×)`);
+
+  // ---- dusk -------------------------------------------------------------
+  t = await setTime(18.5);
+  const duskSky = await ev(() => window.__MT_SKY__());
+  check('dusk warms the horizon while the light falls',
+    t.phase === 'dusk' && t.warmth > 0.5 && t.dayness < 0.6 && duskSky.horizon !== nightSky.horizon,
+    `warm=${t.warmth?.toFixed?.(2)} k=${t.dayness?.toFixed?.(2)} horizon=${duskSky.horizon}`);
+
+  // ---- night returns -----------------------------------------------------
+  t = await setTime(2);
+  const nightSky2 = await ev(() => window.__MT_SKY__());
+  const lampsBack = await ev(() => window.__MT_LIGHT_TIME__());
+  check('night brings the stars and the moon back',
+    t.phase === 'night' && t.dayness < 0.02 && nightSky2.starOpacity > 0.8 &&
+    nightSky2.moonOpacity > 0.7 && nightSky2.sunOpacity < 0.05,
+    `stars=${nightSky2.starOpacity} moon=${nightSky2.moonOpacity} sun=${nightSky2.sunOpacity}`);
+  check('night wakes the district lamps again', lampsBack.nightScale === 1,
+    `nightScale=${lampsBack.nightScale} (boot ${bootLamps.nightScale}, noon ${noonLamps.nightScale})`);
+
+  // ---- the schedule belongs to the seed ---------------------------------
+  // full-day scans (a single hour could coincide between seeds by chance)
+  const seedsCmp = await ev(() => {
+    const scanOf = (seed) => {
+      const out = [];
+      for (let h = 0; h < 24; h += 0.5) out.push(window.__MT_WEATHER__(h, seed));
+      return out;
+    };
+    const a = scanOf('eidolon-77');
+    const b = scanOf('eidolon-77');
+    const c = scanOf('other-seed-9');
+    return {
+      same: JSON.stringify(a) === JSON.stringify(b),
+      differs: JSON.stringify(a) !== JSON.stringify(c),
+      wetA: a.filter((w) => w.rain > 0.05).length,
+      wetC: c.filter((w) => w.rain > 0.05).length,
+    };
+  });
+  check('weather is seeded — same city same weather, a new seed a new sky',
+    seedsCmp.same && seedsCmp.differs && seedsCmp.wetA > 0 && seedsCmp.wetC > 0,
+    `identical=${seedsCmp.same} differs=${seedsCmp.differs} wet half-hours ${seedsCmp.wetA}/${seedsCmp.wetC}`);
+
+  // leave the world at the boot hour for anything that reads stats after this
+  await setTime(22);
+
+  const passed = results.filter((r) => r.ok).length;
+  console.log(`[smoke] day/night checks: ${passed}/${results.length} passed`);
+  if (passed !== results.length) warnings.push(`${results.length - passed} day/night check(s) failed`);
+}
+
 function findEdge() {
   for (const p of EDGE_PATHS) if (existsSync(p)) return p;
   return null;
@@ -1890,7 +2055,7 @@ async function main() {
 
   const url =
     `${BASE_URL}/?seed=${encodeURIComponent(SEED)}` +
-    `&quality=${QUALITY}&grid=${GRID}&rain=1&shadows=1&wet=1`;
+    `&quality=${QUALITY}&grid=${GRID}&rain=1&shadows=1&wet=1&cycle=0`; // cycle=0: the clock is pinned so every time-driven check is exact
 
   const errors = [];
   const warnings = [];
@@ -1978,6 +2143,10 @@ async function main() {
     /* ---------------- Phase 7: visual / audio / performance ------------ */
     console.log('[smoke] quality checks…');
     await runPhase7Tests(page, errors, warnings);
+
+    /* ---------------- Phase 11: day/night + weather by the clock ------- */
+    console.log('[smoke] day/night checks…');
+    await runDayNightTests(page, errors, warnings);
 
     const finalStats = await page.evaluate(() => window.__MT_STATS__());
     if (!finalStats?.world) errors.push('world stats missing after load');

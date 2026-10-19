@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { DISTRICT_ORDER, DISTRICTS } from '../config/districts.js';
 import { PALETTE } from '../config/palette.js';
+import { elevationAt, paletteAt } from './dayNight.js';
 
 /**
  * Lighting rig.
@@ -79,6 +80,38 @@ export function createLighting(scene, layout, settings, quality) {
   const rimOffset = new THREE.Vector3(-150, 95, -120);
   const target = new THREE.Vector3();
 
+  // ---- day/night (Phase 11) ---------------------------------------------
+  // The clock repaints ambient/hemi/key from the blended time palette, swings
+  // the key light onto the sun's arc (moon by night), and dims the district
+  // lamps by day — they are the city's night lighting, not its daylight.
+  const lightDir = new THREE.Vector3(90, 170, 70).normalize();
+  let nightScale = 1;
+
+  /**
+   * @param {number} hour game hour (0..24)
+   * @param {{x:number,y:number,z:number}} dirVec unit key direction for that hour
+   */
+  function setTimeOfDay(hour, dirVec) {
+    const p = paletteAt(hour);
+    ambient.color.setHex(p.ambient);
+    ambient.intensity = 1.05 + 0.4 * p.k;
+    hemi.color.setHex(p.hemiSky);
+    hemi.groundColor.setHex(p.hemiGround);
+    hemi.intensity = 1.3 + 0.35 * p.k;
+    dir.color.setHex(p.key);
+    // twilight dips the key while the light changes hands at the horizon
+    const e = elevationAt(hour);
+    const dip = 1 - 0.35 * Math.exp(-Math.pow(e / 0.09, 2));
+    dir.intensity = (1.85 + 0.55 * p.k) * dip;
+    if (dirVec) lightDir.set(dirVec.x, dirVec.y, dirVec.z).normalize();
+    offset.copy(lightDir).multiplyScalar(205);
+    const nextScale = 1 - 0.82 * p.k;
+    if (nextScale !== nightScale) {
+      nightScale = nextScale;
+      refreshLights(lastPos); // re-apply accent intensities at the new scale
+    }
+  }
+
   // ---- dynamic light budget (Phase 7) ------------------------------------
   // Forward rendering pays for every visible light on every material, so we
   // only show the *nearest* N district/landmark accent lights to the camera
@@ -100,7 +133,7 @@ export function createLighting(scene, layout, settings, quality) {
     list.forEach((l, i) => {
       const on = keep.has(i);
       l.visible = on;
-      l.intensity = on ? (l.userData.baseIntensity ?? 1) : 0;
+      l.intensity = on ? (l.userData.baseIntensity ?? 1) * nightScale : 0;
     });
     return keep.size;
   }
@@ -163,6 +196,9 @@ export function createLighting(scene, layout, settings, quality) {
     hemi,
     applyQuality,
     setShadowEnabled,
+    setTimeOfDay,
+    /** Accent-lamp scale by clock (1 at night, ~0.18 at noon) — for tests/HUD. */
+    nightScale: () => nightScale,
     update,
     /** { total, visible } for the stats HUD / test hooks. */
     counts() {

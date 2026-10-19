@@ -115,6 +115,11 @@ export class App {
     this.scene.fog.density = fogDensity(far);
   }
 
+  /** Fog colour follows the day/night horizon (Phase 11). */
+  setFogColor(hex) {
+    this.scene.fog.color.set(hex);
+  }
+
   applyRendererQuality() {
     const q = this.derived.quality;
     this.renderer.setPixelRatio(this.targetPixelRatio());
